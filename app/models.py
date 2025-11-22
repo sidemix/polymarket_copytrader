@@ -2,12 +2,8 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
-import uuid
 
 Base = declarative_base()
-
-def generate_uuid():
-    return str(uuid.uuid4())
 
 class User(Base):
     __tablename__ = "users"
@@ -27,8 +23,6 @@ class LeaderWallet(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_monitored = Column(DateTime, nullable=True)
-    
-    trades = relationship("LeaderTrade", back_populates="wallet")
 
 class LeaderTrade(Base):
     __tablename__ = "leader_trades"
@@ -38,15 +32,14 @@ class LeaderTrade(Base):
     wallet_id = Column(Integer, ForeignKey("leader_wallets.id"), nullable=False)
     market_id = Column(String(100), nullable=False)
     outcome_id = Column(String(50), nullable=False)
-    side = Column(String(10), nullable=False)  # "YES" or "NO"
+    side = Column(String(10), nullable=False)
     size = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     executed_at = Column(DateTime, nullable=False)
     category = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    wallet = relationship("LeaderWallet", back_populates="trades")
-    follower_trades = relationship("FollowerTrade", back_populates="leader_trade")
+    wallet = relationship("LeaderWallet")
 
 class FollowerTrade(Base):
     __tablename__ = "follower_trades"
@@ -59,11 +52,11 @@ class FollowerTrade(Base):
     size = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     executed_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(20), default="EXECUTED")  # EXECUTED, FAILED, SIMULATED
+    status = Column(String(20), default="EXECUTED")
     pnl = Column(Float, default=0.0)
     is_dry_run = Column(Boolean, default=False)
     
-    leader_trade = relationship("LeaderTrade", back_populates="follower_trades")
+    leader_trade = relationship("LeaderTrade")
 
 class Position(Base):
     __tablename__ = "positions"
@@ -81,8 +74,8 @@ class Settings(Base):
     __tablename__ = "settings"
     
     id = Column(Integer, primary_key=True, index=True)
-    global_trading_mode = Column(String(10), default="TEST")  # TEST, LIVE
-    global_trading_status = Column(String(10), default="STOPPED")  # RUNNING, PAUSED, STOPPED
+    global_trading_mode = Column(String(10), default="TEST")
+    global_trading_status = Column(String(10), default="STOPPED")
     dry_run_enabled = Column(Boolean, default=True)
     min_market_volume = Column(Float, default=1000.0)
     max_days_to_resolution = Column(Integer, default=30)
@@ -99,8 +92,8 @@ class SystemEvent(Base):
     __tablename__ = "system_events"
     
     id = Column(Integer, primary_key=True, index=True)
-    event_type = Column(String(50), nullable=False)  # TRADE, RISK_ALERT, SYSTEM, ERROR
+    event_type = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
-    level = Column(String(20), default="INFO")  # INFO, WARNING, ERROR
+    level = Column(String(20), default="INFO")
     metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
