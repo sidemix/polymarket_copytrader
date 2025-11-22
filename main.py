@@ -1,80 +1,44 @@
-import asyncio
-import logging
-import signal
-import sys
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi import FastAPI
 import uvicorn
+import os
+import logging
 
-from app.database import engine, Base, get_db
-from app.models import User, Settings
+from app.database import engine, Base
+from app.models import User, LeaderWallet, LeaderTrade, FollowerTrade, Position, Settings, SystemEvent
 from app.auth import create_default_admin
-from app.api import app as api_app
-from app.config import settings as app_settings
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-    ]
-)
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Starting Polymarket Copytrader...")
+# Create tables
+try:
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
     
-    # Create database tables
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created/verified")
-        
-        # Create default admin user
-        with next(get_db()) as db:
-            create_default_admin(db)
-            logger.info("Default admin user verified")
-            
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        raise
+    # Create default admin user
+    from app.database import SessionLocal
+    db = SessionLocal()
+    create_default_admin(db)
+    db.close()
     
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down Polymarket Copytrader...")
+except Exception as e:
+    logger.error(f"Database initialization failed: {e}")
 
-# Create FastAPI app with lifespan
-app = FastAPI(
-    title="Polymarket Copytrader",
-    description="Production-grade copytrading system for Polymarket",
-    version="1.0.0",
-    lifespan=lifespan
-)
+app = FastAPI(title="Polymarket Copytrader")
 
-# Include API routes
+# Import and include your API routes
+from app.api import app as api_app
 app.include_router(api_app)
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global exception handler: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"}
-    )
+@app.get("/")
+async def root():
+    return {"status": "Polymarket Copytrader", "version": "1.0.0"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "database": "connected"}
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=False,
-        log_level="info"
-    )
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
