@@ -16,10 +16,6 @@ from app.models import (
 )
 from app.auth import get_current_user, create_access_token, verify_password
 from app.config import settings
-from app.wallet_monitor import WalletMonitor
-from app.strategy import CopyStrategy
-from app.risk import RiskManager
-from app.executor import TradeExecutor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,10 +35,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global state
-wallet_monitor = None
-monitor_task = None
 
 # Dependency to get current settings
 def get_current_settings(db: Session = Depends(get_db)) -> Settings:
@@ -119,7 +111,7 @@ async def dashboard(
             "total_profit": total_profit,
             "win_rate": win_rate,
             "active_wallets": active_wallets,
-            "risk_level": "Low"  # Simplified
+            "risk_level": "Low"
         },
         "recent_events": recent_events,
         "top_wallets": top_wallets
@@ -243,12 +235,6 @@ async def start_bot(
     current_settings.global_trading_status = "RUNNING"
     db.commit()
     
-    # Start wallet monitor in background
-    global wallet_monitor, monitor_task
-    wallet_monitor = WalletMonitor(db)
-    
-    # In a real implementation, you'd use proper background task management
-    # For now, we'll just update the status
     event = SystemEvent(
         event_type="BOT_STARTED",
         message="Trading bot started",
@@ -272,11 +258,6 @@ async def stop_bot(
     # Update settings
     current_settings.global_trading_status = "STOPPED"
     db.commit()
-    
-    # Stop wallet monitor
-    global wallet_monitor, monitor_task
-    if wallet_monitor:
-        wallet_monitor.stop_monitoring()
     
     event = SystemEvent(
         event_type="BOT_STOPPED",
