@@ -15,12 +15,12 @@ class Settings(BaseSettings):
     POLYMARKET_API_BASE_URL: str = "https://api.polymarket.com/v1"
     
     # Trading Settings
-    GLOBAL_TRADING_MODE: str = "TEST"  # TEST or LIVE
-    GLOBAL_TRADING_STATUS: str = "STOPPED"  # RUNNING, PAUSED, STOPPED
+    GLOBAL_TRADING_MODE: str = "TEST"
+    GLOBAL_TRADING_STATUS: str = "STOPPED"
     DRY_RUN_ENABLED: bool = True
     
     # Monitoring
-    WALLET_POLL_INTERVAL: int = 30  # seconds
+    WALLET_POLL_INTERVAL: int = 30
     MAX_DAYS_TO_RESOLUTION: int = 30
     MIN_MARKET_VOLUME: float = 1000.0
     
