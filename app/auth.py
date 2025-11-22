@@ -1,17 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import secrets
 
 from app.database import get_db
 from app.models import User
 from app.config import settings
 
-# Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
@@ -21,7 +18,7 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -35,14 +32,12 @@ async def get_current_user(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    # Check session first (for web dashboard)
     user_id = request.session.get("user_id")
     if user_id:
         user = db.query(User).filter(User.id == user_id).first()
         if user and user.is_active:
             return user
     
-    # Fall back to token authentication (for API)
     try:
         credentials: HTTPAuthorizationCredentials = await security(request)
         token = credentials.credentials
@@ -68,7 +63,6 @@ async def get_current_user(
     return user
 
 def create_default_admin(db: Session):
-    """Create default admin user if none exists"""
     admin = db.query(User).filter(User.username == "admin").first()
     if not admin:
         hashed_password = get_password_hash("admin123")
