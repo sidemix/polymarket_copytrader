@@ -1,99 +1,70 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
-
-Base = declarative_base()
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey
+from sqlalchemy.sql import func
+from .db import Base
 
 class User(Base):
     __tablename__ = "users"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True, nullable=False)
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
 
 class LeaderWallet(Base):
     __tablename__ = "leader_wallets"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    address = Column(String(42), unique=True, index=True, nullable=False)
-    nickname = Column(String(50))
+    id = Column(Integer, primary_key=True)
+    address = Column(String(42), unique=True, nullable=False, index=True)
+    nickname = Column(String(100))
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_monitored = Column(DateTime, nullable=True)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class LeaderTrade(Base):
     __tablename__ = "leader_trades"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    external_trade_id = Column(String(100), unique=True, index=True, nullable=False)
-    wallet_id = Column(Integer, ForeignKey("leader_wallets.id"), nullable=False)
-    market_id = Column(String(100), nullable=False)
-    outcome_id = Column(String(50), nullable=False)
-    side = Column(String(10), nullable=False)
-    size = Column(Float, nullable=False)
-    price = Column(Float, nullable=False)
-    executed_at = Column(DateTime, nullable=False)
-    category = Column(String(100))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    wallet = relationship("LeaderWallet")
+    id = Column(Integer, primary_key=True)
+    leader_wallet_id = Column(Integer, ForeignKey("leader_wallets.id"))
+    external_trade_id = Column(String(100), unique=True, index=True)
+    market_id = Column(String(100), index=True)
+    outcome_id = Column(Integer)
+    side = Column(String(10))  # YES / NO
+    size = Column(Float)
+    price = Column(Float)
+    executed_at = Column(DateTime(timezone=True))
+    raw_data = Column(JSON)
 
 class FollowerTrade(Base):
     __tablename__ = "follower_trades"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    leader_trade_id = Column(Integer, ForeignKey("leader_trades.id"), nullable=False)
-    market_id = Column(String(100), nullable=False)
-    outcome_id = Column(String(50), nullable=False)
-    side = Column(String(10), nullable=False)
-    size = Column(Float, nullable=False)
-    price = Column(Float, nullable=False)
-    executed_at = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(20), default="EXECUTED")
-    pnl = Column(Float, default=0.0)
-    is_dry_run = Column(Boolean, default=False)
-    
-    leader_trade = relationship("LeaderTrade")
+    id = Column(Integer, primary_key=True)
+    leader_trade_id = Column(Integer, ForeignKey("leader_trades.id"))
+    market_id = Column(String(100), index=True)
+    outcome_id = Column(Integer)
+    side = Column(String(10))
+    size_usd = Column(Float)
+    executed = Column(Boolean, default=False)
+    executed_at = Column(DateTime(timezone=True))
+    dry_run = Column(Boolean)
+    result = Column(Text)
 
 class Position(Base):
     __tablename__ = "positions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    market_id = Column(String(100), nullable=False)
-    outcome_id = Column(String(50), nullable=False)
-    size = Column(Float, nullable=False)
-    average_price = Column(Float, nullable=False)
+    id = Column(Integer, primary_key=True)
+    market_id = Column(String(100), index=True)
+    outcome_id = Column(Integer)
+    size = Column(Float)
+    avg_price = Column(Float)
     unrealized_pnl = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Settings(Base):
     __tablename__ = "settings"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    global_trading_mode = Column(String(10), default="TEST")
-    global_trading_status = Column(String(10), default="STOPPED")
-    dry_run_enabled = Column(Boolean, default=True)
-    min_market_volume = Column(Float, default=1000.0)
-    max_days_to_resolution = Column(Integer, default=30)
-    max_risk_per_trade_pct = Column(Float, default=2.0)
-    max_open_markets = Column(Integer, default=10)
-    max_exposure_per_market = Column(Float, default=100.0)
-    copy_trade_percentage = Column(Float, default=20.0)
-    max_trade_amount = Column(Float, default=100.0)
+    id = Column(Integer, primary_key=True, default=1)
+    copy_percentage = Column(Float, default=20.0)
+    max_trade_usd = Column(Float, default=100.0)
     daily_loss_limit = Column(Float, default=200.0)
-    max_trades_per_hour = Column(Integer, default=10)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    min_market_volume = Column(Float, default=10000.0)
+    max_days_to_resolution = Column(Integer, default=180)
 
 class SystemEvent(Base):
     __tablename__ = "system_events"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    event_type = Column(String(50), nullable=False)
-    message = Column(Text, nullable=False)
-    level = Column(String(20), default="INFO")
-    metadata = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    event_type = Column(String(50))
+    message = Column(Text)
+    data = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
