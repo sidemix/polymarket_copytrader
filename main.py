@@ -1,9 +1,9 @@
 # app/main.py
-from fastapi import FastAPI, Request, Depends, Form, Response, HTTPException
+from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.session import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware   # CORRECT IMPORT
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SystemEvent, SettingsSingleton
@@ -14,10 +14,11 @@ from passlib.handlers.argon2 import argon2
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)  # THIS LINE WAS MISSING
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)  # FIXED
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
+# Simple auth middleware
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if request.url.path in ["/login", "/static/", "/favicon.ico", "/health"]:
@@ -26,8 +27,7 @@ async def auth_middleware(request: Request, call_next):
     if not request.session.get("authenticated"):
         return RedirectResponse("/login")
     
-    response = await call_next(request)
-    return response
+    return await call_next(request)
 
 @app.get("/login")
 async def login_page(request: Request):
@@ -49,34 +49,26 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
-    # Ensure settings exist
     bot_settings = db.query(SettingsSingleton).first()
     if not bot_settings:
         bot_settings = SettingsSingleton()
         db.add(bot_settings)
         db.commit()
 
-    # Stats
     total_trades = db.query(SystemEvent).filter(SystemEvent.event_type == "trade_executed").count()
     active_wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count()
 
     context = {
         "request": request,
-        "stats": {
-            "total_trades": total_trades,
-            "profitable_trades": 0,
-            "total_pnl": 0.0,
-            "win_rate": 0.0
-        },
+        "stats": {"total_trades": total_trades, "profitable_trades": 0, "total_pnl": 0.0, "win_rate": 0.0},
         "leader_wallets": db.query(LeaderWallet).all(),
         "recent_logs": db.query(SystemEvent).order_by(SystemEvent.id.desc()).limit(50).all(),
         "active_wallets_count": active_wallets,
-        "top_wallets": [],
         "bot_status": getattr(bot_settings, "global_trading_status", "STOPPED"),
         "trading_mode": getattr(bot_settings, "global_trading_mode", "TEST"),
         "dry_run": getattr(bot_settings, "dry_run_enabled", True),
         "risk_level": "Low",
-        "risk_settings": {"copy_percentage": 20, "max_trade_amount": 100},
+        "risk_settings": {"copy_percentage": 20},
         "balances": {"available_cash": 5920, "portfolio_value": 10019},
         "risk_status": "All systems normal",
         "daily_pnl": 0.0,
