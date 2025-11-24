@@ -9,7 +9,7 @@ import json
 import asyncio
 import aiohttp
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Float, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Float, Text, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
@@ -37,7 +37,7 @@ class PolymarketTradingConfig:
 # Global trading config
 trading_config = PolymarketTradingConfig()
 
-# Database setup
+# Database setup - FIXED: Don't drop tables on every restart
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./copytrader.db")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -57,13 +57,20 @@ class User(Base):
 class Settings(Base):
     __tablename__ = "settings"
     id = Column(Integer, primary_key=True, index=True)
-    global_trading_mode = Column(String(10), default="TEST")
+    global_trading_mode = Column(String(10), default="TEST")  # TEST or LIVE
     global_trading_status = Column(String(10), default="STOPPED")
     dry_run_enabled = Column(Boolean, default=True)
     copy_trade_percentage = Column(Float, default=20.0)
     max_trade_amount = Column(Float, default=100.0)
     min_market_volume = Column(Float, default=1000.0)
     max_days_to_resolution = Column(Integer, default=30)
+    trade_cooldown = Column(Integer, default=30)
+    poll_interval = Column(Integer, default=30)
+    daily_loss_limit = Column(Float, default=200.0)
+    # Add tracking for when we switch modes
+    last_mode_switch = Column(DateTime, default=datetime.utcnow)
+    test_mode_started = Column(DateTime, nullable=True)
+    live_mode_started = Column(DateTime, nullable=True)
 
 class Wallet(Base):
     __tablename__ = "wallets"
@@ -107,32 +114,78 @@ class SystemEvent(Base):
     message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# Drop and recreate all tables to ensure clean schema
-try:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    print("Database tables recreated successfully")
-except Exception as e:
-    print(f"Error recreating tables: {e}")
+# FIXED: Only create tables if they don't exist
+def initialize_database():
+    try:
+        # Check if tables exist
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        required_tables = ['users', 'settings', 'wallets', 'leader_trades', 'follower_trades', 'system_events']
+        
+        # Only create missing tables
+        missing_tables = [table for table in required_tables if table not in existing_tables]
+        
+        if missing_tables:
+            print(f"Creating missing tables: {missing_tables}")
+            Base.metadata.create_all(bind=engine)
+            print("Database tables created successfully")
+        else:
+            print("All database tables already exist")
+            
+    except Exception as e:
+        print(f"Error checking/creating tables: {e}")
+        # Fallback: create all tables
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("Database tables created successfully (fallback)")
+        except Exception as fallback_error:
+            print(f"Fallback table creation failed: {fallback_error}")
+
+initialize_database()
 
 # FastAPI app
 app = FastAPI(title="Polymarket Copytrader")
 
-# Socket.IO
-socket_manager = SocketManager(app=app)
+# Socket.IO - FIXED: Proper configuration
+socket_manager = SocketManager(app=app, mount_location="/socket.io/", cors_allowed_origins=[])
 
 # Templates and static files
-templates = Jinja2Templates(directory="app/templates")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - FIXED: Handle bcrypt version issue
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception as e:
+    print(f"Warning: bcrypt context creation failed: {e}")
+    # Fallback to a simpler hashing method for development
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    try:
+        # Truncate password if too long for bcrypt
+        if len(password) > 72:
+            password = password[:72]
+        return pwd_context.hash(password)
+    except Exception as e:
+        print(f"Password hashing error: {e}")
+        # Fallback hashing
+        import hashlib
+        return hashlib.sha256(password.encode()).hexdigest()
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Truncate password if too long for bcrypt
+        if len(plain_password) > 72:
+            plain_password = plain_password[:72]
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        print(f"Password verification error: {e}")
+        # Fallback verification
+        import hashlib
+        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
 
 def get_db():
     db = SessionLocal()
@@ -141,10 +194,10 @@ def get_db():
     finally:
         db.close()
 
-def initialize_database():
+def initialize_default_data():
     db = SessionLocal()
     try:
-        # Create admin user
+        # Create admin user if doesn't exist
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
             hashed_password = get_password_hash("admin")
@@ -152,33 +205,35 @@ def initialize_database():
             db.add(admin)
             print("✅ Admin user created: admin / admin")
         
-        # Create default settings
+        # Create default settings if doesn't exist
         settings = db.query(Settings).first()
         if not settings:
             settings = Settings()
             db.add(settings)
             print("Default settings created")
         
-        # Create welcome event
-        event = SystemEvent(
-            event_type="SYSTEM_START",
-            message="Trading system initialized successfully"
-        )
-        db.add(event)
+        # Create welcome event if no events exist
+        existing_events = db.query(SystemEvent).count()
+        if existing_events == 0:
+            event = SystemEvent(
+                event_type="SYSTEM_START",
+                message="Trading system initialized successfully"
+            )
+            db.add(event)
         
         db.commit()
-        print("Database initialized successfully")
+        print("Default data initialized successfully")
         
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error initializing default data: {e}")
         db.rollback()
     finally:
         db.close()
 
-initialize_database()
+initialize_default_data()
 
 # =============================================================================
-# PHASE 2: POLYMARKET CLIENT & WALLET MONITORING
+# POLYMARKET CLIENT & WALLET MONITORING
 # =============================================================================
 
 class PolymarketClient:
@@ -270,20 +325,22 @@ class PolymarketClient:
             db = SessionLocal()
             settings = db.query(Settings).first()
             
-            if settings and settings.dry_run_enabled:
+            if settings and (settings.dry_run_enabled or settings.global_trading_mode == "TEST"):
                 # Simulate trade in dry-run mode
                 print(f"DRY RUN: Would place order - {outcome} {amount} @ {price} on {market_id}")
                 return {"success": True, "order_id": f"dry_run_{datetime.utcnow().timestamp()}"}
             
-            elif self.config.account:
+            elif self.config.account and settings.global_trading_mode == "LIVE":
                 # REAL TRADING - Execute on blockchain
                 return await self._execute_real_trade(market_id, outcome, amount, price)
             else:
-                return {"success": False, "error": "No trading account configured"}
+                return {"success": False, "error": "No trading account configured or not in LIVE mode"}
                 
         except Exception as e:
             print(f"Error placing order: {e}")
             return {"success": False, "error": str(e)}
+        finally:
+            db.close()
     
     async def _execute_real_trade(self, market_id: str, outcome: str, amount: float, price: float):
         """Execute a real trade on Polymarket"""
@@ -330,7 +387,7 @@ class PolymarketClient:
             return {"success": False, "error": str(e)}
 
 # =============================================================================
-# PHASE 3: COPY TRADING STRATEGY & RISK MANAGEMENT
+# COPY TRADING STRATEGY & RISK MANAGEMENT
 # =============================================================================
 
 class CopyTradingStrategy:
@@ -400,21 +457,30 @@ class RiskManager:
         self.db = db
     
     def can_execute_trade(self, trade_data: dict) -> tuple[bool, str]:
-        """Check if a trade can be executed based on risk rules"""
+        """Check if a trade can be executed based on risk rules and current mode"""
         try:
-            # Check if we already have too many open positions
+            settings = self.db.query(Settings).first()
+            if not settings:
+                return False, "No settings configured"
+            
+            # Mode-specific risk checks
+            if settings.global_trading_mode == "LIVE":
+                # Stricter checks for live trading
+                if trade_data["amount"] * trade_data["price"] > 1000:  # $1000 max in live
+                    return False, "Trade size too large for live mode"
+            
+            elif settings.global_trading_mode == "TEST":
+                # More lenient checks for testing
+                if trade_data["amount"] * trade_data["price"] > 5000:  # $5000 max in test
+                    return False, "Trade size too large for test mode"
+            
+            # Common risk checks
             recent_trades = self.db.query(FollowerTrade).filter(
                 FollowerTrade.created_at >= datetime.utcnow() - timedelta(hours=1)
             ).count()
             
-            if recent_trades >= 10:  # Max 10 trades per hour
+            if recent_trades >= 10:
                 return False, "Too many recent trades"
-            
-            # Add more risk checks here:
-            # - Maximum exposure per market
-            # - Daily loss limits
-            # - Portfolio concentration
-            # - etc.
             
             return True, "OK"
             
@@ -511,18 +577,24 @@ class WalletMonitor:
             leader_trade = LeaderTrade(
                 wallet_id=wallet.id,
                 external_trade_id=trade_data["id"],
-                market_id=trade_data["market_id"],
+                market_id=trade_data["market"],
                 outcome=trade_data["outcome"],
                 side=trade_data["side"],
-                amount=trade_data["amount"],
-                price=trade_data["price"],
-                executed_at=datetime.fromisoformat(trade_data["executed_at"].replace('Z', '+00:00'))
+                amount=float(trade_data["amount"]),
+                price=float(trade_data["price"]),
+                executed_at=datetime.fromisoformat(trade_data["timestamp"].replace('Z', '+00:00'))
             )
             db.add(leader_trade)
             db.flush()  # Get the ID
             
             # Process through strategy
-            mirror_trade = await strategy.process_leader_trade(trade_data, wallet)
+            mirror_trade = await strategy.process_leader_trade({
+                "market_id": trade_data["market"],
+                "outcome": trade_data["outcome"],
+                "side": trade_data["side"],
+                "amount": float(trade_data["amount"]),
+                "price": float(trade_data["price"])
+            }, wallet)
             
             if mirror_trade:
                 # Check risk management
@@ -625,6 +697,7 @@ async def startup_event():
         settings = db.query(Settings).first()
         if settings and settings.global_trading_status == "RUNNING":
             monitor_task = asyncio.create_task(wallet_monitor.start_monitoring())
+            print("🔄 Resuming wallet monitoring on startup")
     finally:
         db.close()
 
@@ -634,17 +707,9 @@ async def shutdown_event():
     await wallet_monitor.stop_monitoring()
 
 # =============================================================================
-# EXISTING ROUTES (keep all your existing routes below)
+# ROUTES
 # =============================================================================
 
-# [Keep all your existing routes from the previous version here...]
-# Routes: /, /health, /login, /dashboard, /api/stats, /api/wallets, etc.
-# Bot Control Routes: /api/bot/start, /api/bot/stop, /api/bot/pause
-# Settings Routes: /api/settings, etc.
-
-# [PASTE ALL YOUR EXISTING ROUTES HERE - they should work unchanged]
-
-# Routes
 @app.get("/")
 async def root():
     return RedirectResponse(url="/dashboard")
@@ -670,59 +735,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
 @app.get("/dashboard")
 async def dashboard(request: Request):
-    db = SessionLocal()
-    try:
-        settings = db.query(Settings).first()
-        if not settings:
-            settings = Settings()
-            db.add(settings)
-            db.commit()
-        
-        # Get wallets count
-        wallets_count = db.query(Wallet).filter(Wallet.is_active == True).count()
-        
-        # Get recent events
-        recent_events = db.query(SystemEvent).order_by(SystemEvent.created_at.desc()).limit(10).all()
-        
-        # Get wallets
-        wallets = db.query(Wallet).filter(Wallet.is_active == True).all()
-        
-        # Get trade stats
-        total_trades = db.query(FollowerTrade).count()
-        executed_trades = db.query(FollowerTrade).filter(FollowerTrade.status == "EXECUTED").count()
-        
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "settings": settings,
-            "stats": {
-                "total_trades": total_trades,
-                "profitable_trades": executed_trades,  # Simplified for now
-                "total_profit": 0,  # Would need P&L calculation
-                "win_rate": (executed_trades / total_trades * 100) if total_trades > 0 else 0,
-                "active_wallets": wallets_count,
-                "risk_level": "Low"
-            },
-            "recent_events": recent_events,
-            "wallets": wallets
-        })
-    except Exception as e:
-        print(f"Dashboard error: {e}")
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "settings": Settings(),
-            "stats": {
-                "total_trades": 0,
-                "profitable_trades": 0,
-                "total_profit": 0,
-                "win_rate": 0,
-                "active_wallets": 0,
-                "risk_level": "Low"
-            },
-            "recent_events": [],
-            "wallets": []
-        })
-    finally:
-        db.close()
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 # API Routes
 @app.get("/api/stats")
@@ -762,7 +775,8 @@ async def get_wallets(db: SessionLocal = Depends(get_db)):
                 "nickname": wallet.nickname,
                 "is_active": wallet.is_active,
                 "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
-                "last_monitored": wallet.last_monitored.isoformat() if wallet.last_monitored else None
+                "last_monitored": wallet.last_monitored.isoformat() if wallet.last_monitored else None,
+                "trade_count": db.query(LeaderTrade).filter(LeaderTrade.wallet_id == wallet.id).count()
             }
             for wallet in wallets
         ]
@@ -949,7 +963,13 @@ async def get_settings(db: SessionLocal = Depends(get_db)):
             "copy_trade_percentage": settings.copy_trade_percentage,
             "max_trade_amount": settings.max_trade_amount,
             "min_market_volume": settings.min_market_volume,
-            "max_days_to_resolution": settings.max_days_to_resolution
+            "max_days_to_resolution": settings.max_days_to_resolution,
+            "trade_cooldown": settings.trade_cooldown,
+            "poll_interval": settings.poll_interval,
+            "daily_loss_limit": settings.daily_loss_limit,
+            "last_mode_switch": settings.last_mode_switch.isoformat() if settings.last_mode_switch else None,
+            "test_mode_started": settings.test_mode_started.isoformat() if settings.test_mode_started else None,
+            "live_mode_started": settings.live_mode_started.isoformat() if settings.live_mode_started else None
         }
     except Exception as e:
         print(f"Settings error: {e}")
@@ -960,26 +980,139 @@ async def update_settings(request: Request, db: SessionLocal = Depends(get_db)):
     try:
         data = await request.json()
         settings = db.query(Settings).first()
+        
         if not settings:
             settings = Settings()
             db.add(settings)
         
+        # Update settings
         for key, value in data.items():
             if hasattr(settings, key):
                 setattr(settings, key, value)
         
+        db.commit()
+        
         event = SystemEvent(
             event_type="SETTINGS_UPDATED",
-            message="Bot settings updated"
+            message="Settings updated successfully"
         )
         db.add(event)
-        
         db.commit()
         
         return {"message": "Settings updated successfully"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/settings/switch-mode")
+async def switch_trading_mode(request: Request, db: SessionLocal = Depends(get_db)):
+    """Switch between TEST and LIVE modes with optional analytics reset"""
+    try:
+        data = await request.json()
+        new_mode = data.get("mode")
+        reset_analytics = data.get("reset_analytics", True)
+        
+        if new_mode not in ["TEST", "LIVE"]:
+            raise HTTPException(status_code=400, detail="Mode must be TEST or LIVE")
+        
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+        
+        current_mode = settings.global_trading_mode
+        
+        if current_mode == new_mode:
+            return {"message": f"Already in {new_mode} mode"}
+        
+        # Stop bot before switching modes
+        if settings.global_trading_status == "RUNNING":
+            await wallet_monitor.stop_monitoring()
+            settings.global_trading_status = "STOPPED"
+        
+        # Reset analytics if requested
+        if reset_analytics:
+            await reset_trading_analytics(db)
+        
+        # Update mode tracking
+        settings.global_trading_mode = new_mode
+        settings.last_mode_switch = datetime.utcnow()
+        
+        if new_mode == "TEST":
+            settings.test_mode_started = datetime.utcnow()
+            settings.dry_run_enabled = True  # Force dry-run in test mode
+            print(f"🔄 Switched to TEST mode - Analytics reset: {reset_analytics}")
+        else:
+            settings.live_mode_started = datetime.utcnow()
+            # In live mode, dry-run can be either enabled or disabled
+            print(f"🚀 Switched to LIVE mode - Analytics reset: {reset_analytics}")
+        
+        # Log system event
+        event = SystemEvent(
+            event_type="MODE_SWITCHED",
+            message=f"Switched from {current_mode} to {new_mode} mode. Analytics reset: {reset_analytics}"
+        )
+        db.add(event)
+        
+        db.commit()
+        
+        await socket_manager.emit('mode_update', {
+            'old_mode': current_mode,
+            'new_mode': new_mode,
+            'reset_analytics': reset_analytics
+        })
+        
+        return {
+            "message": f"Switched to {new_mode} mode successfully",
+            "reset_analytics": reset_analytics,
+            "dry_run_enabled": settings.dry_run_enabled
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/analytics/reset")
+async def reset_analytics(db: SessionLocal = Depends(get_db)):
+    """Manually reset trading analytics"""
+    try:
+        await reset_trading_analytics(db)
+        
+        event = SystemEvent(
+            event_type="ANALYTICS_RESET",
+            message="Trading analytics manually reset"
+        )
+        db.add(event)
+        db.commit()
+        
+        return {"message": "Analytics reset successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def reset_trading_analytics(db: SessionLocal):
+    """Reset all trading analytics and history"""
+    try:
+        # Delete all follower trades (our executed trades)
+        db.query(FollowerTrade).delete()
+        
+        # Delete all leader trades (monitored wallet trades)
+        db.query(LeaderTrade).delete()
+        
+        # Reset wallet monitoring timestamps
+        wallets = db.query(Wallet).all()
+        for wallet in wallets:
+            wallet.last_monitored = None
+        
+        # Keep system events for audit trail, but you could also reset them:
+        # db.query(SystemEvent).delete()
+        
+        print("✅ Trading analytics reset complete")
+        
+    except Exception as e:
+        print(f"Error resetting analytics: {e}")
+        raise
 
 # System Events
 @app.get("/api/events")
@@ -1021,6 +1154,18 @@ async def get_trades(db: SessionLocal = Depends(get_db)):
     except Exception as e:
         print(f"Trades error: {e}")
         return []
+
+@app.post("/api/events/clear")
+async def clear_events(db: SessionLocal = Depends(get_db)):
+    """Clear all system events"""
+    try:
+        db.query(SystemEvent).delete()
+        db.commit()
+        
+        return {"message": "System events cleared successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

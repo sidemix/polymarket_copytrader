@@ -1,1369 +1,1449 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Bot Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Bot Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            font-family: Arial, sans-serif;
-            background: #1a1a1a;
-            color: white;
-            padding: 10px;
-        }
+body {
+    font-family: Arial, sans-serif;
+    background: #1a1a1a;
+    color: white;
+    padding: 10px;
+}
 
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.container { max-width: 1400px; margin: 0 auto; }
+.header { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; }
+.header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.header-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 
-        .panel { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
+.panel { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
 
-        .stat { background: #3d3d3d; padding: 12px; border-radius: 8px; text-align: center; }
-        .stat-value { font-size: 20px; font-weight: bold; color: #4CAF50; }
-        .stat.negative .stat-value { color: #f44336; }
+.stat { background: #3d3d3d; padding: 12px; border-radius: 8px; text-align: center; }
+.stat-value { font-size: 20px; font-weight: bold; color: #4CAF50; }
+.stat.negative .stat-value { color: #f44336; }
 
-        .btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 3px;
-            font-size: 14px;
-        }
-        .btn.stop { background: #f44336; }
-        .btn.warning { background: #ff9800; }
-        .btn.small { padding: 4px 8px; font-size: 12px; }
-        .btn:disabled { background: #666; cursor: not-allowed; }
+.btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 3px;
+    font-size: 14px;
+}
+.btn.stop { background: #f44336; }
+.btn.warning { background: #ff9800; }
+.btn.small { padding: 4px 8px; font-size: 12px; }
+.btn:disabled { background: #666; cursor: not-allowed; }
 
-        .wallet-list { max-height: 300px; overflow-y: auto; }
-        .wallet-item {
-            background: #3d3d3d; padding: 12px; margin: 4px 0;
-            border-radius: 5px; display: flex; justify-content: space-between;
-            align-items: center; flex-wrap: wrap; gap: 8px;
-        }
-        .wallet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .wallet-profit { color: #4CAF50; }
-        .wallet-loss { color: #f44336; }
-        .wallet-paused { opacity: 0.6; }
+.wallet-list { max-height: 300px; overflow-y: auto; }
+.wallet-item {
+    background: #3d3d3d; padding: 12px; margin: 4px 0;
+    border-radius: 5px; display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.wallet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.wallet-profit { color: #4CAF50; }
+.wallet-loss { color: #f44336; }
+.wallet-paused { opacity: 0.6; }
 
-        textarea, input, select {
-            width: 100%; padding: 8px; margin: 4px 0; background: #3d3d3d;
-            border: 1px solid #555; color: white; border-radius: 5px; font-size: 14px;
-        }
+textarea, input, select {
+    width: 100%; padding: 8px; margin: 4px 0; background: #3d3d3d;
+    border: 1px solid #555; color: white; border-radius: 5px; font-size: 14px;
+}
 
-        #output {
-            background: #1a1a1a; padding: 8px; border-radius: 5px;
-            height: 150px; overflow-y: auto; font-family: monospace;
-            font-size: 11px; white-space: pre-wrap;
-        }
+#output {
+    background: #1a1a1a; padding: 8px; border-radius: 5px;
+    height: 150px; overflow-y: auto; font-family: monospace;
+    font-size: 11px; white-space: pre-wrap;
+}
 
-        .icon { display: inline-block; margin-right: 6px; }
+.icon { display: inline-block; margin-right: 6px; }
 
-        .settings-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+.settings-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
 
-        .wallet-stats { font-size: 11px; color: #ccc; margin-top: 4px; }
+.wallet-stats { font-size: 11px; color: #ccc; margin-top: 4px; }
 
-        .tab-container {
-            display: flex; margin-bottom: 15px; background: #2d2d2d;
-            border-radius: 10px; padding: 4px; flex-wrap: wrap;
-        }
-        .tab {
-            padding: 10px 15px; cursor: pointer; border-radius: 5px;
-            flex: 1; text-align: center; transition: background 0.3s;
-            border: none; background: transparent; color: white; font-size: 13px;
-            min-width: 120px;
-        }
-        .tab:hover { background: #3d3d3d; }
-        .tab.active { background: #4CAF50; }
+.tab-container {
+    display: flex; margin-bottom: 15px; background: #2d2d2d;
+    border-radius: 10px; padding: 4px; flex-wrap: wrap;
+}
+.tab {
+    padding: 10px 15px; cursor: pointer; border-radius: 5px;
+    flex: 1; text-align: center; transition: background 0.3s;
+    border: none; background: transparent; color: white; font-size: 13px;
+    min-width: 120px;
+}
+.tab:hover { background: #3d3d3d; }
+.tab.active { background: #4CAF50; }
 
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-        .wallet-address { font-family: monospace; font-size: 10px; color: #888; }
-        .wallet-nickname { font-weight: bold; color: #fff; font-size: 14px; }
+.wallet-address { font-family: monospace; font-size: 10px; color: #888; }
+.wallet-nickname { font-weight: bold; color: #fff; font-size: 14px; }
 
-        .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 1000;
-            align-items: center; justify-content: center; padding: 20px;
-        }
+.modal {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 1000;
+    align-items: center; justify-content: center; padding: 20px;
+}
 
-        .modal-content {
-            background: #2d2d2d; padding: 20px; border-radius: 10px;
-            width: 100%; max-width: 400px;
-        }
+.modal-content {
+    background: #2d2d2d; padding: 20px; border-radius: 10px;
+    width: 100%; max-width: 400px;
+}
 
-        .notification-bell {
-            position: relative; cursor: pointer;
-            padding: 8px; background: #3d3d3d;
-            border-radius: 50%; width: 40px; height: 40px;
-            display: flex; align-items: center; justify-content: center;
-        }
+.notification-bell {
+    position: relative; cursor: pointer;
+    padding: 8px; background: #3d3d3d;
+    border-radius: 50%; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+}
 
-        .notification-badge {
-            position: absolute; top: -5px; right: -5px;
-            background: #f44336; color: white; border-radius: 50%;
-            width: 20px; height: 20px; font-size: 11px;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold;
-        }
+.notification-badge {
+    position: absolute; top: -5px; right: -5px;
+    background: #f44336; color: white; border-radius: 50%;
+    width: 20px; height: 20px; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+}
 
-        .notifications-panel {
-            position: absolute; top: 100%; right: 0;
-            background: #2d2d2d; border: 1px solid #444;
-            border-radius: 8px; width: 350px; max-height: 500px;
-            overflow-y: auto; z-index: 1000; display: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
+.notifications-panel {
+    position: absolute; top: 100%; right: 0;
+    background: #2d2d2d; border: 1px solid #444;
+    border-radius: 8px; width: 350px; max-height: 500px;
+    overflow-y: auto; z-index: 1000; display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
 
-        .notifications-header {
-            padding: 15px; border-bottom: 1px solid #444;
-            display: flex; justify-content: space-between; align-items: center;
-        }
+.notifications-header {
+    padding: 15px; border-bottom: 1px solid #444;
+    display: flex; justify-content: space-between; align-items: center;
+}
 
-        .notifications-body { max-height: 400px; overflow-y: auto; }
-        .notification-item { padding: 12px 15px; border-bottom: 1px solid #444; transition: background 0.2s; }
-        .notification-item:hover { background: #3d3d3d; }
-        .notification-item:last-child { border-bottom: none; }
+.notifications-body { max-height: 400px; overflow-y: auto; }
+.notification-item { padding: 12px 15px; border-bottom: 1px solid #444; transition: background 0.2s; }
+.notification-item:hover { background: #3d3d3d; }
+.notification-item:last-child { border-bottom: none; }
 
-        .notification-title { font-weight: bold; margin-bottom: 5px; color: #fff; }
-        .notification-message { font-size: 13px; color: #ccc; margin-bottom: 5px; }
-        .notification-time { font-size: 11px; color: #888; }
-        .notification-actions { margin-top: 8px; display: flex; gap: 10px; }
+.notification-title { font-weight: bold; margin-bottom: 5px; color: #fff; }
+.notification-message { font-size: 13px; color: #ccc; margin-bottom: 5px; }
+.notification-time { font-size: 11px; color: #888; }
+.notification-actions { margin-top: 8px; display: flex; gap: 10px; }
 
-        .btn-clear {
-            background: transparent; border: 1px solid #666; color: #ccc;
-            padding: 4px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;
-        }
-        .btn-clear:hover { background: #444; }
+.btn-clear {
+    background: transparent; border: 1px solid #666; color: #ccc;
+    padding: 4px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;
+}
+.btn-clear:hover { background: #444; }
 
-        .no-notifications { padding: 20px; text-align: center; color: #888; font-style: italic; }
+.no-notifications { padding: 20px; text-align: center; color: #888; font-style: italic; }
 
-        @media (min-width: 768px) {
-            body { padding: 20px; }
-            .header { padding: 20px; flex-direction: row; }
-            .header-top { flex-direction: row; }
-            .panel { padding: 20px; }
-            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-            .wallet-item { padding: 15px; flex-wrap: nowrap; }
-            .settings-grid { grid-template-columns: 1fr 1fr; }
-        }
+@media (min-width: 768px) {
+    body { padding: 20px; }
+    .header { padding: 20px; flex-direction: row; }
+    .header-top { flex-direction: row; }
+    .panel { padding: 20px; }
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .wallet-item { padding: 15px; flex-wrap: nowrap; }
+    .settings-grid { grid-template-columns: 1fr 1fr; }
+}
 
-        .chart-container { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; height: 300px; }
-        .charts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
-        @media (min-width: 768px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+.chart-container { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; height: 300px; }
+.charts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+@media (min-width: 768px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
 
-        .discovery-item {
-            background: #3d3d3d; padding: 12px;
-            margin: 5px 0; border-radius: 5px;
-            display: flex; justify-content: space-between;
-            align-items: center; flex-wrap: wrap; gap: 8px;
-        }
-        .discovery-stats { font-size: 11px; color: #ccc; }
+.discovery-item {
+    background: #3d3d3d; padding: 12px;
+    margin: 5px 0; border-radius: 5px;
+    display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.discovery-stats { font-size: 11px; color: #ccc; }
 
-        .status-running { color: #4CAF50; }
-        .status-stopped { color: #f44336; }
-        .status-paused { color: #ff9800; }
+.status-running { color: #4CAF50; }
+.status-stopped { color: #f44336; }
+.status-paused { color: #ff9800; }
 
-        .mode-test { color: #ff9800; }
-        .mode-live { color: #4CAF50; }
-    </style>
+.mode-test { color: #ff9800; }
+.mode-live { color: #4CAF50; }
+</style>
 </head>
 
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="header-top">
-                <h1><i class="fas fa-robot fa-icon"></i> Trading Bot Dashboard</h1>
+<div class="container">
 
-                <div class="header-controls">
-                    <div class="notification-bell" onclick="toggleNotifications()">
-                        <i class="fas fa-bell fa-icon"></i>
-                        <span class="notification-badge" id="notificationCount">0</span>
-                        <div class="notifications-panel" id="notificationsPanel">
-                            <div class="notifications-header">
-                                <h3><i class="fas fa-bell fa-icon"></i> Notifications</h3>
-                                <div>
-                                    <button class="btn-clear" onclick="clearAllNotifications()">Clear All</button>
-                                    <button class="btn-clear" onclick="markAllAsRead()">Mark Read</button>
-                                </div>
-                            </div>
-                            <div class="notifications-body" id="notificationsList">
-                                <div class="no-notifications">No notifications</div>
-                            </div>
-                        </div>
-                    </div>
+<div class="header">
+    <div class="header-top">
+        <h1><i class="fas fa-robot fa-icon"></i> Trading Bot Dashboard</h1>
 
-                    <button id="startBtn" class="btn" onclick="controlBot('start')"><i class="fas fa-play"></i> Start</button>
-                    <button id="stopBtn" class="btn stop" onclick="controlBot('stop')"><i class="fas fa-stop"></i> Stop</button>
-                    <button id="pauseBtn" class="btn warning" onclick="controlBot('pause')"><i class="fas fa-pause"></i> Pause</button>
-                    
-                    <span id="status">Status: <span class="status-stopped" id="statusText">STOPPED</span></span>
-                    <span id="mode">Mode: <span class="mode-test" id="modeText">TEST</span></span>
-                    <span id="dryRun" style="color: #ff9800; font-weight: bold;">DRY RUN</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- TABS -->
-        <div class="tab-container">
-            <button class="tab active" data-tab="overview"><i class="fas fa-chart-bar fa-icon"></i> Overview</button>
-            <button class="tab" data-tab="analytics"><i class="fas fa-chart-line fa-icon"></i> Analytics</button>
-            <button class="tab" data-tab="wallets"><i class="fas fa-wallet fa-icon"></i> Wallets</button>
-            <button class="tab" data-tab="discovery"><i class="fas fa-search fa-icon"></i> Discovery</button>
-            <button class="tab" data-tab="risk"><i class="fas fa-shield-alt fa-icon"></i> Risk</button>
-            <button class="tab" data-tab="settings"><i class="fas fa-cog fa-icon"></i> Settings</button>
-        </div>
-
-        <!-- OVERVIEW TAB -->
-        <div id="overview-tab" class="tab-content active">
-            <div class="panel">
-                <h3><i class="fas fa-chart-bar fa-icon"></i> Performance Stats</h3>
-                <div class="stats-grid">
-                    <div class="stat"><div class="stat-value" id="totalTrades">0</div><div>Total Trades</div></div>
-                    <div class="stat"><div class="stat-value" id="profitableTrades">0</div><div>Profitable Trades</div></div>
-                    <div class="stat"><div class="stat-value" id="totalProfit">$0.00</div><div>Total Profit</div></div>
-                    <div class="stat"><div class="stat-value" id="winRate">0%</div><div>Win Rate</div></div>
-                    <div class="stat"><div class="stat-value" id="activeWallets">0</div><div>Active Wallets</div></div>
-                    <div class="stat"><div class="stat-value" id="riskLevel">Low</div><div>Risk Level</div></div>
-                </div>
-            </div>
-
-            <div class="charts-grid">
-                <div class="panel">
-                    <h3><i class="fas fa-trophy fa-icon"></i> Top Performing Wallets</h3>
-                    <div class="wallet-list" id="topWallets">
-                        <div class="no-wallets">No wallets configured yet</div>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <h3><i class="fas fa-list fa-icon"></i> Recent Activity</h3>
-                    <div id="output">System started. Waiting for activity...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ANALYTICS TAB -->
-        <div id="analytics-tab" class="tab-content">
-            <div class="panel">
-                <h3><i class="fas fa-chart-line fa-icon"></i> Performance Analytics</h3>
-                <div class="charts-grid">
-                    <div class="chart-container"><canvas id="profitChart"></canvas></div>
-                    <div class="chart-container"><canvas id="tradesChart"></canvas></div>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-container"><canvas id="walletPerformanceChart"></canvas></div>
-                    <div class="chart-container"><canvas id="winRateChart"></canvas></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- WALLETS TAB -->
-        <div id="wallets-tab" class="tab-content">
-            <div class="charts-grid">
-                <div class="panel">
-                    <h3><i class="fas fa-wallet fa-icon"></i> Wallet Management</h3>
-                    <div style="margin-bottom: 15px;">
-                        <button class="btn" onclick="showAddWalletModal()"><i class="fas fa-plus"></i> Add Wallet</button>
-                        <button class="btn warning" onclick="refreshWallets()"><i class="fas fa-sync"></i> Refresh</button>
-                    </div>
-                    <div class="wallet-list" id="walletsList">
-                        <div class="no-wallets">No wallets configured. Click "Add Wallet" to get started.</div>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <h3><i class="fas fa-chart-line fa-icon"></i> Wallet Performance</h3>
-                    <div class="wallet-list" id="walletPerformance">
-                        <div class="no-data">No performance data available yet</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- DISCOVERY TAB -->
-        <div id="discovery-tab" class="tab-content">
-            <div class="panel">
-                <h3><i class="fas fa-search fa-icon"></i> Auto Wallet Discovery</h3>
-                <div style="margin-bottom: 15px;">
-                    <button class="btn" onclick="discoverWallets()"><i class="fas fa-search"></i> Find Profitable Wallets</button>
-                    <button class="btn warning" onclick="stopDiscovery()"><i class="fas fa-stop"></i> Stop Discovery</button>
-                    <button class="btn" onclick="loadDiscoveryResults()"><i class="fas fa-sync"></i> Refresh</button>
-                </div>
-                <div id="discoveryResults">
-                    <div class="discovery-item">
+        <div class="header-controls">
+            <div class="notification-bell" onclick="toggleNotifications()">
+                <i class="fas fa-bell fa-icon"></i>
+                <span class="notification-badge" id="notificationCount">0</span>
+                <div class="notifications-panel" id="notificationsPanel">
+                    <div class="notifications-header">
+                        <h3><i class="fas fa-bell fa-icon"></i> Notifications</h3>
                         <div>
-                            <div style="font-weight: bold; color: #fff;">Click "Find Profitable Wallets" to discover new trading opportunities</div>
-                            <div class="discovery-stats">Discovery system ready</div>
+                            <button class="btn-clear" onclick="clearAllNotifications()">Clear All</button>
+                            <button class="btn-clear" onclick="markAllAsRead()">Mark Read</button>
                         </div>
                     </div>
+                    <div class="notifications-body" id="notificationsList">
+                        <div class="no-notifications">No notifications</div>
+                    </div>
                 </div>
+            </div>
+
+            <button id="startBtn" class="btn" onclick="controlBot('start')"><i class="fas fa-play"></i> Start</button>
+            <button id="stopBtn" class="btn stop" onclick="controlBot('stop')"><i class="fas fa-stop"></i> Stop</button>
+            <button id="pauseBtn" class="btn warning" onclick="controlBot('pause')"><i class="fas fa-pause"></i> Pause</button>
+            
+            <span id="status">Status: <span class="status-stopped" id="statusText">STOPPED</span></span>
+            <span id="mode">Mode: <span class="mode-test" id="modeText">TEST</span></span>
+            <span id="dryRun" style="color: #ff9800; font-weight: bold;">DRY RUN</span>
+        </div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="tab-container">
+    <button class="tab active" data-tab="overview"><i class="fas fa-chart-bar fa-icon"></i> Overview</button>
+    <button class="tab" data-tab="analytics"><i class="fas fa-chart-line fa-icon"></i> Analytics</button>
+    <button class="tab" data-tab="wallets"><i class="fas fa-wallet fa-icon"></i> Wallets</button>
+    <button class="tab" data-tab="discovery"><i class="fas fa-search fa-icon"></i> Discovery</button>
+    <button class="tab" data-tab="risk"><i class="fas fa-shield-alt fa-icon"></i> Risk</button>
+    <button class="tab" data-tab="settings"><i class="fas fa-cog fa-icon"></i> Settings</button>
+</div>
+
+<!-- OVERVIEW TAB -->
+<div id="overview-tab" class="tab-content active">
+    <div class="panel">
+        <h3><i class="fas fa-chart-bar fa-icon"></i> Performance Stats</h3>
+        <div class="stats-grid">
+            <div class="stat"><div class="stat-value" id="totalTrades">0</div><div>Total Trades</div></div>
+            <div class="stat"><div class="stat-value" id="profitableTrades">0</div><div>Profitable Trades</div></div>
+            <div class="stat"><div class="stat-value" id="totalProfit">$0.00</div><div>Total Profit</div></div>
+            <div class="stat"><div class="stat-value" id="winRate">0%</div><div>Win Rate</div></div>
+            <div class="stat"><div class="stat-value" id="activeWallets">0</div><div>Active Wallets</div></div>
+            <div class="stat"><div class="stat-value" id="riskLevel">Low</div><div>Risk Level</div></div>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="panel">
+            <h3><i class="fas fa-trophy fa-icon"></i> Top Performing Wallets</h3>
+            <div class="wallet-list" id="topWallets">
+                <div class="no-wallets">No wallets configured yet</div>
             </div>
         </div>
 
-        <!-- RISK TAB -->
-        <div id="risk-tab" class="tab-content">
-            <div class="charts-grid">
-                <div class="panel">
-                    <h3><i class="fas fa-shield-alt fa-icon"></i> Risk Controls</h3>
+        <div class="panel">
+            <h3><i class="fas fa-list fa-icon"></i> Recent Activity</h3>
+            <div id="output">System started. Waiting for activity...</div>
+        </div>
+    </div>
+</div>
 
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-percentage fa-icon"></i> Copy Trading Percentage:</label>
-                        <input type="range" id="copyPercentage" min="1" max="100" value="20" oninput="updatePercentageValue()">
-                        <span id="copyPercentageValue">20%</span>
-                    </div>
+<!-- ANALYTICS TAB -->
+<div id="analytics-tab" class="tab-content">
+    <div class="panel">
+        <h3><i class="fas fa-chart-line fa-icon"></i> Performance Analytics</h3>
+        <div class="charts-grid">
+            <div class="chart-container"><canvas id="profitChart"></canvas></div>
+            <div class="chart-container"><canvas id="tradesChart"></canvas></div>
+        </div>
+        <div class="charts-grid">
+            <div class="chart-container"><canvas id="walletPerformanceChart"></canvas></div>
+            <div class="chart-container"><canvas id="winRateChart"></canvas></div>
+        </div>
+    </div>
+</div>
 
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-dollar-sign fa-icon"></i> Max Trade Amount ($):</label>
-                        <input type="number" id="maxTradeAmount" value="100">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-exclamation-triangle fa-icon"></i> Daily Loss Limit ($):</label>
-                        <input type="number" id="dailyLossLimit" value="200">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-clock fa-icon"></i> Max Trades Per Hour:</label>
-                        <input type="number" id="maxTradesPerHour" value="10">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-chart-line fa-icon"></i> Max Risk Per Trade (%):</label>
-                        <input type="number" id="maxRiskPerTrade" value="2.0" step="0.1">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label><i class="fas fa-store fa-icon"></i> Max Open Markets:</label>
-                        <input type="number" id="maxOpenMarkets" value="10">
-                    </div>
-
-                    <button class="btn" onclick="updateRiskSettings()"><i class="fas fa-save"></i> Update Risk Settings</button>
-                </div>
-
-                <div class="panel">
-                    <h3><i class="fas fa-balance-scale fa-icon"></i> Balance Management</h3>
-
-                    <div style="margin-bottom: 15px;">
-                        <label>Available Cash:</label>
-                        <input type="number" id="cashInput" value="5920">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label>Portfolio Value:</label>
-                        <input type="number" id="portfolioInput" value="10019">
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <label>Risk Tolerance:</label>
-                        <select id="riskTolerance">
-                            <option value="low">Low (Conservative)</option>
-                            <option value="medium" selected>Medium (Balanced)</option>
-                            <option value="high">High (Aggressive)</option>
-                        </select>
-                    </div>
-
-                    <button class="btn" onclick="updateBalance()"><i class="fas fa-save"></i> Update Balance</button>
-
-                    <div style="margin-top: 20px; padding: 15px; background: #3d3d3d; border-radius: 5px;">
-                        <h4><i class="fas fa-info-circle fa-icon"></i> Risk Status</h4>
-                        <div id="riskStatus">All systems normal</div>
-                        <div class="wallet-stats" id="riskStats">Daily P&L: $0 | Trades Today: 0</div>
-                    </div>
-                </div>
+<!-- WALLETS TAB -->
+<div id="wallets-tab" class="tab-content">
+    <div class="charts-grid">
+        <div class="panel">
+            <h3><i class="fas fa-wallet fa-icon"></i> Wallet Management</h3>
+            <div style="margin-bottom: 15px;">
+                <button class="btn" onclick="showAddWalletModal()"><i class="fas fa-plus"></i> Add Wallet</button>
+                <button class="btn warning" onclick="refreshWallets()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+            <div class="wallet-list" id="walletsList">
+                <div class="no-wallets">No wallets configured. Click "Add Wallet" to get started.</div>
             </div>
         </div>
 
-        <!-- SETTINGS TAB -->
-        <div id="settings-tab" class="tab-content">
-            <!-- Trading Mode Management Panel -->
-            <div class="panel">
-                <h3><i class="fas fa-exchange-alt fa-icon"></i> Trading Mode Management</h3>
-                <div id="modeInfo" style="margin-bottom: 20px;">
-                    <!-- Mode information will be loaded here by JavaScript -->
-                    <div style="text-align: center; padding: 20px; color: #888;">
-                        <i class="fas fa-spinner fa-spin"></i> Loading mode information...
-                    </div>
-                </div>
-
-                <div class="settings-grid">
-                    <div>
-                        <label>Trading Mode:</label>
-                        <select id="tradingMode" onchange="showModeSwitchWarning()">
-                            <option value="TEST">TEST</option>
-                            <option value="LIVE">LIVE</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Dry Run Mode:</label>
-                        <select id="dryRunEnabled">
-                            <option value="true">Enabled</option>
-                            <option value="false">Disabled</option>
-                        </select>
-                        <div class="wallet-stats" id="dryRunHelp">
-                            Dry run simulates trades without real money
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 15px; padding: 15px; background: #3d3d3d; border-radius: 8px;">
-                    <h4><i class="fas fa-info-circle"></i> Mode Information</h4>
-                    <div class="wallet-stats">
-                        <div><strong>TEST Mode:</strong> Perfect for strategy development</div>
-                        <div>- Dry run enabled by default</div>
-                        <div>- No real money involved</div>
-                        <div>- Analytics reset when switching to LIVE</div>
-                    </div>
-                    <div class="wallet-stats" style="margin-top: 10px;">
-                        <div><strong>LIVE Mode:</strong> Real trading with actual funds</div>
-                        <div>- Requires private key configuration</div>
-                        <div>- Real blockchain transactions</div>
-                        <div>- Separate analytics from TEST mode</div>
-                    </div>
-                </div>
+        <div class="panel">
+            <h3><i class="fas fa-chart-line fa-icon"></i> Wallet Performance</h3>
+            <div class="wallet-list" id="walletPerformance">
+                <div class="no-data">No performance data available yet</div>
             </div>
+        </div>
+    </div>
+</div>
 
-            <!-- Risk Management Panel -->
-            <div class="panel">
-                <h3><i class="fas fa-shield-alt fa-icon"></i> Risk Management</h3>
-
-                <div class="settings-grid">
-                    <div>
-                        <label><i class="fas fa-percentage fa-icon"></i> Copy Trading Percentage:</label>
-                        <input type="range" id="copyPercentage" min="1" max="100" value="20" oninput="updatePercentageValue()">
-                        <span id="copyPercentageValue">20%</span>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-dollar-sign fa-icon"></i> Max Trade Amount ($):</label>
-                        <input type="number" id="maxTradeAmount" value="100">
-                        <div class="wallet-stats">Maximum per trade in USD</div>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-chart-line fa-icon"></i> Min Market Volume ($):</label>
-                        <input type="number" id="minMarketVolume" value="1000">
-                        <div class="wallet-stats">Skip low-volume markets</div>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-clock fa-icon"></i> Max Days to Resolution:</label>
-                        <input type="number" id="maxDaysResolution" value="30">
-                        <div class="wallet-stats">Avoid long-term markets</div>
-                    </div>
-                </div>
-
-                <div class="settings-grid" style="margin-top: 15px;">
-                    <div>
-                        <label><i class="fas fa-exclamation-triangle fa-icon"></i> Daily Loss Limit ($):</label>
-                        <input type="number" id="dailyLossLimit" value="200">
-                        <div class="wallet-stats">Auto-stop on daily loss</div>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-stopwatch fa-icon"></i> Trade Cooldown (seconds):</label>
-                        <input type="number" id="tradeCooldown" value="30">
-                        <div class="wallet-stats">Wait between trades</div>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-hourglass fa-icon"></i> Wallet Poll Interval (seconds):</label>
-                        <input type="number" id="pollInterval" value="30">
-                        <div class="wallet-stats">How often to check wallets</div>
-                    </div>
-                    <div>
-                        <label><i class="fas fa-bell fa-icon"></i> Push Notifications:</label>
-                        <select id="pushNotifications">
-                            <option value="true">Enabled</option>
-                            <option value="false">Disabled</option>
-                        </select>
-                        <div class="wallet-stats">Get trade alerts</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Analytics Management Panel -->
-            <div class="panel">
-                <h3><i class="fas fa-chart-bar fa-icon"></i> Analytics & Data Management</h3>
-                
-                <div style="margin-bottom: 20px; padding: 15px; background: #3d3d3d; border-radius: 8px;">
-                    <h4><i class="fas fa-database"></i> Current Analytics</h4>
-                    <div class="wallet-stats" id="analyticsStats">
-                        Loading analytics data...
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn warning" onclick="resetAnalytics()" id="resetAnalyticsBtn">
-                        <i class="fas fa-trash"></i> Reset All Analytics
-                    </button>
-                    <button class="btn" onclick="exportAnalytics()" id="exportAnalyticsBtn">
-                        <i class="fas fa-download"></i> Export Analytics
-                    </button>
-                    <button class="btn" onclick="clearSystemEvents()" id="clearEventsBtn">
-                        <i class="fas fa-broom"></i> Clear System Events
-                    </button>
-                </div>
-
-                <div style="margin-top: 15px; padding: 12px; background: #2d2d2d; border-radius: 5px; border-left: 4px solid #ff9800;">
-                    <i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i>
-                    <strong>Warning:</strong> Resetting analytics will permanently delete all trade history and statistics. This action cannot be undone.
-                </div>
-            </div>
-
-            <!-- Settings Actions Panel -->
-            <div class="panel">
-                <h3><i class="fas fa-save fa-icon"></i> Save Configuration</h3>
-                
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
-                    <button class="btn" onclick="updateBotSettings()" id="saveSettingsBtn">
-                        <i class="fas fa-save"></i> Save All Settings
-                    </button>
-                    <button class="btn" onclick="loadSettings()" id="loadSettingsBtn">
-                        <i class="fas fa-sync"></i> Reload Settings
-                    </button>
-                    <button class="btn stop" onclick="resetToDefaults()" id="resetDefaultsBtn">
-                        <i class="fas fa-undo"></i> Reset to Defaults
-                    </button>
-                </div>
-
-                <div id="saveStatus" style="margin-top: 10px; display: none;">
-                    <!-- Save status messages will appear here -->
+<!-- DISCOVERY TAB -->
+<div id="discovery-tab" class="tab-content">
+    <div class="panel">
+        <h3><i class="fas fa-search fa-icon"></i> Auto Wallet Discovery</h3>
+        <div style="margin-bottom: 15px;">
+            <button class="btn" onclick="discoverWallets()"><i class="fas fa-search"></i> Find Profitable Wallets</button>
+            <button class="btn warning" onclick="stopDiscovery()"><i class="fas fa-stop"></i> Stop Discovery</button>
+            <button class="btn" onclick="loadDiscoveryResults()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+        <div id="discoveryResults">
+            <div class="discovery-item">
+                <div>
+                    <div style="font-weight: bold; color: #fff;">Click "Find Profitable Wallets" to discover new trading opportunities</div>
+                    <div class="discovery-stats">Discovery system ready</div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- ADD WALLET MODAL -->
-    <div id="addWalletModal" class="modal">
-        <div class="modal-content">
-            <h3><i class="fas fa-plus fa-icon"></i> Add Wallet</h3>
+<!-- RISK TAB -->
+<div id="risk-tab" class="tab-content">
+    <div class="charts-grid">
+        <div class="panel">
+            <h3><i class="fas fa-shield-alt fa-icon"></i> Risk Controls</h3>
 
             <div style="margin-bottom: 15px;">
-                <input type="text" id="walletNickname" placeholder="Wallet Nickname" style="margin-bottom: 10px;">
-                <input type="text" id="walletAddress" placeholder="Wallet Address (0x...)">
+                <label><i class="fas fa-percentage fa-icon"></i> Copy Trading Percentage:</label>
+                <input type="range" id="copyPercentage" min="1" max="100" value="20" oninput="updatePercentageValue()">
+                <span id="copyPercentageValue">20%</span>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn" onclick="addWallet()"><i class="fas fa-save"></i> Add Wallet</button>
-                <button class="btn stop" onclick="hideAddWalletModal()">Cancel</button>
+            <div style="margin-bottom: 15px;">
+                <label><i class="fas fa-dollar-sign fa-icon"></i> Max Trade Amount ($):</label>
+                <input type="number" id="maxTradeAmount" value="100">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label><i class="fas fa-exclamation-triangle fa-icon"></i> Daily Loss Limit ($):</label>
+                <input type="number" id="dailyLossLimit" value="200">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label><i class="fas fa-clock fa-icon"></i> Max Trades Per Hour:</label>
+                <input type="number" id="maxTradesPerHour" value="10">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label><i class="fas fa-chart-line fa-icon"></i> Max Risk Per Trade (%):</label>
+                <input type="number" id="maxRiskPerTrade" value="2.0" step="0.1">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label><i class="fas fa-store fa-icon"></i> Max Open Markets:</label>
+                <input type="number" id="maxOpenMarkets" value="10">
+            </div>
+
+            <button class="btn" onclick="updateRiskSettings()"><i class="fas fa-save"></i> Update Risk Settings</button>
+        </div>
+
+        <div class="panel">
+            <h3><i class="fas fa-balance-scale fa-icon"></i> Balance Management</h3>
+
+            <div style="margin-bottom: 15px;">
+                <label>Available Cash:</label>
+                <input type="number" id="cashInput" value="5920">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Portfolio Value:</label>
+                <input type="number" id="portfolioInput" value="10019">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Risk Tolerance:</label>
+                <select id="riskTolerance">
+                    <option value="low">Low (Conservative)</option>
+                    <option value="medium" selected>Medium (Balanced)</option>
+                    <option value="high">High (Aggressive)</option>
+                </select>
+            </div>
+
+            <button class="btn" onclick="updateBalance()"><i class="fas fa-save"></i> Update Balance</button>
+
+            <div style="margin-top: 20px; padding: 15px; background: #3d3d3d; border-radius: 5px;">
+                <h4><i class="fas fa-info-circle fa-icon"></i> Risk Status</h4>
+                <div id="riskStatus">All systems normal</div>
+                <div class="wallet-stats" id="riskStats">Daily P&L: $0 | Trades Today: 0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="settings-tab" class="tab-content">
+    <!-- Trading Mode Management Panel -->
+    <div class="panel">
+        <h3><i class="fas fa-exchange-alt fa-icon"></i> Trading Mode Management</h3>
+        <div id="modeInfo" style="margin-bottom: 20px;">
+            <!-- Mode information will be loaded here by JavaScript -->
+            <div style="text-align: center; padding: 20px; color: #888;">
+                <i class="fas fa-spinner fa-spin"></i> Loading mode information...
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <div>
+                <label>Trading Mode:</label>
+                <select id="tradingMode" onchange="showModeSwitchWarning()">
+                    <option value="TEST">TEST</option>
+                    <option value="LIVE">LIVE</option>
+                </select>
+            </div>
+            <div>
+                <label>Dry Run Mode:</label>
+                <select id="dryRunEnabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+                <div class="wallet-stats" id="dryRunHelp">
+                    Dry run simulates trades without real money
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Section -->
+        <div style="margin-top: 15px; padding: 15px; background: #3d3d3d; border-radius: 8px;">
+            <h4><i class="fas fa-broom"></i> Quick Actions</h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn warning" onclick="resetAnalytics()">
+                    <i class="fas fa-trash"></i> Clear All Stats
+                </button>
+                <button class="btn" id="quickSwitchBtn" onclick="quickSwitchMode()">
+                    <i class="fas fa-exchange-alt"></i> Switch Mode
+                </button>
+            </div>
+            <div class="wallet-stats" style="margin-top: 10px;">
+                Clear stats when switching from test to live mode to keep analytics separate.
+            </div>
+        </div>
+
+        <div style="margin-top: 15px; padding: 15px; background: #3d3d3d; border-radius: 8px;">
+            <h4><i class="fas fa-info-circle"></i> Mode Information</h4>
+            <div class="wallet-stats">
+                <div><strong>TEST Mode:</strong> Perfect for strategy development</div>
+                <div>- Dry run enabled by default</div>
+                <div>- No real money involved</div>
+                <div>- Analytics reset when switching to LIVE</div>
+            </div>
+            <div class="wallet-stats" style="margin-top: 10px;">
+                <div><strong>LIVE Mode:</strong> Real trading with actual funds</div>
+                <div>- Requires private key configuration</div>
+                <div>- Real blockchain transactions</div>
+                <div>- Separate analytics from TEST mode</div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Global state
-        let socket = null;
-        let notifications = [];
-        let unreadCount = 0;
-        let currentBotStatus = 'STOPPED';
-        let currentSettings = {};
+    <!-- Risk Management Panel -->
+    <div class="panel">
+        <h3><i class="fas fa-shield-alt fa-icon"></i> Risk Management</h3>
 
-        // Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSocket();
-            setupTabs();
-            initializeCharts();
-            loadInitialData();
-            startDataRefresh();
+        <div class="settings-grid">
+            <div>
+                <label><i class="fas fa-percentage fa-icon"></i> Copy Trading Percentage:</label>
+                <input type="range" id="copyPercentage" min="1" max="100" value="20" oninput="updatePercentageValue()">
+                <span id="copyPercentageValue">20%</span>
+            </div>
+            <div>
+                <label><i class="fas fa-dollar-sign fa-icon"></i> Max Trade Amount ($):</label>
+                <input type="number" id="maxTradeAmount" value="100">
+                <div class="wallet-stats">Maximum per trade in USD</div>
+            </div>
+            <div>
+                <label><i class="fas fa-chart-line fa-icon"></i> Min Market Volume ($):</label>
+                <input type="number" id="minMarketVolume" value="1000">
+                <div class="wallet-stats">Skip low-volume markets</div>
+            </div>
+            <div>
+                <label><i class="fas fa-clock fa-icon"></i> Max Days to Resolution:</label>
+                <input type="number" id="maxDaysResolution" value="30">
+                <div class="wallet-stats">Avoid long-term markets</div>
+            </div>
+        </div>
+
+        <div class="settings-grid" style="margin-top: 15px;">
+            <div>
+                <label><i class="fas fa-exclamation-triangle fa-icon"></i> Daily Loss Limit ($):</label>
+                <input type="number" id="dailyLossLimit" value="200">
+                <div class="wallet-stats">Auto-stop on daily loss</div>
+            </div>
+            <div>
+                <label><i class="fas fa-stopwatch fa-icon"></i> Trade Cooldown (seconds):</label>
+                <input type="number" id="tradeCooldown" value="30">
+                <div class="wallet-stats">Wait between trades</div>
+            </div>
+            <div>
+                <label><i class="fas fa-hourglass fa-icon"></i> Wallet Poll Interval (seconds):</label>
+                <input type="number" id="pollInterval" value="30">
+                <div class="wallet-stats">How often to check wallets</div>
+            </div>
+            <div>
+                <label><i class="fas fa-bell fa-icon"></i> Push Notifications:</label>
+                <select id="pushNotifications">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+                <div class="wallet-stats">Get trade alerts</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Management Panel -->
+    <div class="panel">
+        <h3><i class="fas fa-chart-bar fa-icon"></i> Analytics & Data Management</h3>
+        
+        <div style="margin-bottom: 20px; padding: 15px; background: #3d3d3d; border-radius: 8px;">
+            <h4><i class="fas fa-database"></i> Current Analytics</h4>
+            <div class="wallet-stats" id="analyticsStats">
+                Loading analytics data...
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn warning" onclick="resetAnalytics()" id="resetAnalyticsBtn">
+                <i class="fas fa-trash"></i> Clear All Stats
+            </button>
+            <button class="btn" onclick="exportAnalytics()" id="exportAnalyticsBtn">
+                <i class="fas fa-download"></i> Export Analytics
+            </button>
+            <button class="btn" onclick="clearSystemEvents()" id="clearEventsBtn">
+                <i class="fas fa-broom"></i> Clear System Events
+            </button>
+        </div>
+
+        <div style="margin-top: 15px; padding: 12px; background: #2d2d2d; border-radius: 5px; border-left: 4px solid #ff9800;">
+            <i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i>
+            <strong>Warning:</strong> Clearing stats will permanently delete all trade history and statistics. This action cannot be undone.
+        </div>
+    </div>
+
+    <!-- Settings Actions Panel -->
+    <div class="panel">
+        <h3><i class="fas fa-save fa-icon"></i> Save Configuration</h3>
+        
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+            <button class="btn" onclick="updateBotSettings()" id="saveSettingsBtn">
+                <i class="fas fa-save"></i> Save All Settings
+            </button>
+            <button class="btn" onclick="loadSettings()" id="loadSettingsBtn">
+                <i class="fas fa-sync"></i> Reload Settings
+            </button>
+            <button class="btn stop" onclick="resetToDefaults()" id="resetDefaultsBtn">
+                <i class="fas fa-undo"></i> Reset to Defaults
+            </button>
+        </div>
+
+        <div id="saveStatus" style="margin-top: 10px; display: none;">
+            <!-- Save status messages will appear here -->
+        </div>
+    </div>
+</div>
+</div> <!-- end container -->
+
+<!-- ADD WALLET MODAL -->
+<div id="addWalletModal" class="modal">
+    <div class="modal-content">
+        <h3><i class="fas fa-plus fa-icon"></i> Add Wallet</h3>
+
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="walletNickname" placeholder="Wallet Nickname" style="margin-bottom: 10px;">
+            <input type="text" id="walletAddress" placeholder="Wallet Address (0x...)">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn" onclick="addWallet()"><i class="fas fa-save"></i> Add Wallet</button>
+            <button class="btn stop" onclick="hideAddWalletModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global state
+let socket = null;
+let notifications = [];
+let unreadCount = 0;
+let currentBotStatus = 'STOPPED';
+let currentSettings = {};
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSocket();
+    setupTabs();
+    initializeCharts();
+    loadInitialData();
+    startDataRefresh();
+});
+
+// Socket.IO initialization
+function initializeSocket() {
+    socket = io();
+    
+    socket.on('connect', function() {
+        addNotification('System', 'Connected to trading bot', 'success');
+        console.log('Socket connected');
+    });
+    
+    socket.on('disconnect', function() {
+        addNotification('System', 'Disconnected from trading bot', 'warning');
+        console.log('Socket disconnected');
+    });
+    
+    socket.on('status_update', function(data) {
+        updateBotStatus(data.status);
+        addNotification('Bot Status', `Bot is now ${data.status}`, 'info');
+    });
+    
+    socket.on('trade_update', function(data) {
+        addOutput(`[TRADE] ${data.side} ${data.size} @ $${data.price} - ${data.market_id}`);
+        addNotification('Trade Executed', `${data.side} $${data.amount} on ${data.market_id}`, 'trade');
+        refreshStats();
+    });
+
+    socket.on('mode_update', function(data) {
+        addNotification('Mode Changed', `Switched from ${data.old_mode} to ${data.new_mode} mode`, 'success');
+        loadSettings(); // Refresh all settings
+    });
+}
+
+// Tab functionality
+function setupTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.getAttribute('data-tab');
+            
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            
+            tab.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Refresh tab-specific data
+            if (tabName === 'wallets') refreshWallets();
+            if (tabName === 'analytics') refreshCharts();
         });
+    });
+}
 
-        // Socket.IO initialization
-        function initializeSocket() {
-            socket = io();
-            
-            socket.on('connect', function() {
-                addNotification('System', 'Connected to trading bot', 'success');
-                console.log('Socket connected');
-            });
-            
-            socket.on('disconnect', function() {
-                addNotification('System', 'Disconnected from trading bot', 'warning');
-                console.log('Socket disconnected');
-            });
-            
-            socket.on('status_update', function(data) {
-                updateBotStatus(data.status);
-                addNotification('Bot Status', `Bot is now ${data.status}`, 'info');
-            });
-            
-            socket.on('trade_update', function(data) {
-                addOutput(`[TRADE] ${data.side} ${data.size} @ $${data.price} - ${data.market_id}`);
-                addNotification('Trade Executed', `${data.side} $${data.amount} on ${data.market_id}`, 'trade');
-                refreshStats();
-            });
+// Data loading
+async function loadInitialData() {
+    await Promise.all([
+        loadSettings(),
+        refreshStats(),
+        refreshWallets(),
+        loadEvents()
+    ]);
+}
+
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            currentSettings = await response.json();
+            updateSettingsDisplay();
+            updateModeDisplay(currentSettings);
+            updateAnalyticsStats();
+            updateHeaderDisplay();
         }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+}
 
-        // Tab functionality
-        function setupTabs() {
-            const tabs = document.querySelectorAll('.tab');
-            const tabContents = document.querySelectorAll('.tab-content');
-            
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabName = tab.getAttribute('data-tab');
-                    
-                    // Update active tab
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tabContents.forEach(tc => tc.classList.remove('active'));
-                    
-                    tab.classList.add('active');
-                    document.getElementById(`${tabName}-tab`).classList.add('active');
-                    
-                    // Refresh tab-specific data
-                    if (tabName === 'wallets') refreshWallets();
-                    if (tabName === 'analytics') refreshCharts();
-                });
-            });
+async function refreshStats() {
+    try {
+        const response = await fetch('/api/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            updateStatsDisplay(stats);
         }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
 
-        // Data loading
-        async function loadInitialData() {
-            await Promise.all([
-                loadSettings(),
-                refreshStats(),
-                refreshWallets(),
-                loadEvents()
-            ]);
+async function refreshWallets() {
+    try {
+        const response = await fetch('/api/wallets');
+        if (response.ok) {
+            const wallets = await response.json();
+            updateWalletsDisplay(wallets);
         }
+    } catch (error) {
+        console.error('Error loading wallets:', error);
+    }
+}
 
-        async function loadSettings() {
-            try {
-                const response = await fetch('/api/settings');
-                if (response.ok) {
-                    currentSettings = await response.json();
-                    updateSettingsDisplay();
-                    updateModeDisplay(currentSettings);
-                    updateAnalyticsStats();
-                }
-            } catch (error) {
-                console.error('Error loading settings:', error);
-            }
+async function loadEvents() {
+    try {
+        const response = await fetch('/api/events');
+        if (response.ok) {
+            const events = await response.json();
+            updateEventsDisplay(events);
         }
+    } catch (error) {
+        console.error('Error loading events:', error);
+    }
+}
 
-        async function refreshStats() {
-            try {
-                const response = await fetch('/api/stats');
-                if (response.ok) {
-                    const stats = await response.json();
-                    updateStatsDisplay(stats);
-                }
-            } catch (error) {
-                console.error('Error loading stats:', error);
-            }
-        }
+// Display updates
+function updateStatsDisplay(stats) {
+    document.getElementById('totalTrades').textContent = stats.totalTrades;
+    document.getElementById('profitableTrades').textContent = stats.profitableTrades;
+    document.getElementById('totalProfit').textContent = '$' + stats.totalProfit.toFixed(2);
+    document.getElementById('winRate').textContent = stats.winRate + '%';
+    document.getElementById('activeWallets').textContent = stats.activeWallets;
+    document.getElementById('riskLevel').textContent = stats.riskLevel;
+}
 
-        async function refreshWallets() {
-            try {
-                const response = await fetch('/api/wallets');
-                if (response.ok) {
-                    const wallets = await response.json();
-                    updateWalletsDisplay(wallets);
-                }
-            } catch (error) {
-                console.error('Error loading wallets:', error);
-            }
-        }
-
-        async function loadEvents() {
-            try {
-                const response = await fetch('/api/events');
-                if (response.ok) {
-                    const events = await response.json();
-                    updateEventsDisplay(events);
-                }
-            } catch (error) {
-                console.error('Error loading events:', error);
-            }
-        }
-
-        // Display updates
-        function updateStatsDisplay(stats) {
-            document.getElementById('totalTrades').textContent = stats.totalTrades;
-            document.getElementById('profitableTrades').textContent = stats.profitableTrades;
-            document.getElementById('totalProfit').textContent = '$' + stats.totalProfit.toFixed(2);
-            document.getElementById('winRate').textContent = stats.winRate + '%';
-            document.getElementById('activeWallets').textContent = stats.activeWallets;
-            document.getElementById('riskLevel').textContent = stats.riskLevel;
-        }
-
-        function updateWalletsDisplay(wallets) {
-            const walletsList = document.getElementById('walletsList');
-            const topWallets = document.getElementById('topWallets');
-            
-            if (wallets.length === 0) {
-                walletsList.innerHTML = '<div class="no-wallets">No wallets configured. Click "Add Wallet" to get started.</div>';
-                topWallets.innerHTML = '<div class="no-wallets">No wallets configured yet</div>';
-                return;
-            }
-            
-            // Update wallets list
-            walletsList.innerHTML = wallets.map(wallet => `
-                <div class="wallet-item ${!wallet.is_active ? 'wallet-paused' : ''}">
-                    <div>
-                        <div class="wallet-nickname">${wallet.nickname || 'Unnamed Wallet'}</div>
-                        <div class="wallet-address">${wallet.address}</div>
-                        <div class="wallet-stats">
-                            ${wallet.trade_count || 0} trades | 
-                            Last: ${wallet.last_monitored ? new Date(wallet.last_monitored).toLocaleDateString() : 'Never'}
-                        </div>
-                    </div>
-                    <div class="wallet-actions">
-                        <button class="btn btn-small ${wallet.is_active ? 'warning' : ''}" onclick="toggleWallet(${wallet.id}, ${!wallet.is_active})">
-                            ${wallet.is_active ? 'Pause' : 'Resume'}
-                        </button>
-                        <button class="btn btn-small stop" onclick="deleteWallet(${wallet.id})">Delete</button>
-                    </div>
+function updateWalletsDisplay(wallets) {
+    const walletsList = document.getElementById('walletsList');
+    const topWallets = document.getElementById('topWallets');
+    
+    if (wallets.length === 0) {
+        walletsList.innerHTML = '<div class="no-wallets">No wallets configured. Click "Add Wallet" to get started.</div>';
+        topWallets.innerHTML = '<div class="no-wallets">No wallets configured yet</div>';
+        return;
+    }
+    
+    // Update wallets list
+    walletsList.innerHTML = wallets.map(wallet => `
+        <div class="wallet-item ${!wallet.is_active ? 'wallet-paused' : ''}">
+            <div>
+                <div class="wallet-nickname">${wallet.nickname || 'Unnamed Wallet'}</div>
+                <div class="wallet-address">${wallet.address}</div>
+                <div class="wallet-stats">
+                    ${wallet.trade_count || 0} trades | 
+                    Last: ${wallet.last_monitored ? new Date(wallet.last_monitored).toLocaleDateString() : 'Never'}
                 </div>
-            `).join('');
-            
-            // Update top wallets (show first 5 active ones)
-            const activeWallets = wallets.filter(w => w.is_active).slice(0, 5);
-            topWallets.innerHTML = activeWallets.map(wallet => `
-                <div class="wallet-item">
-                    <div>
-                        <div class="wallet-nickname">${wallet.nickname || 'Unnamed Wallet'}</div>
-                        <div class="wallet-address">${wallet.address.substring(0, 10)}...${wallet.address.substring(34)}</div>
-                        <div class="wallet-stats">${wallet.trade_count || 0} trades monitored</div>
-                    </div>
-                </div>
-            `).join('');
-        }
+            </div>
+            <div class="wallet-actions">
+                <button class="btn btn-small ${wallet.is_active ? 'warning' : ''}" onclick="toggleWallet(${wallet.id}, ${!wallet.is_active})">
+                    ${wallet.is_active ? 'Pause' : 'Resume'}
+                </button>
+                <button class="btn btn-small stop" onclick="deleteWallet(${wallet.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update top wallets (show first 5 active ones)
+    const activeWallets = wallets.filter(w => w.is_active).slice(0, 5);
+    topWallets.innerHTML = activeWallets.map(wallet => `
+        <div class="wallet-item">
+            <div>
+                <div class="wallet-nickname">${wallet.nickname || 'Unnamed Wallet'}</div>
+                <div class="wallet-address">${wallet.address.substring(0, 10)}...${wallet.address.substring(34)}</div>
+                <div class="wallet-stats">${wallet.trade_count || 0} trades monitored</div>
+            </div>
+        </div>
+    `).join('');
+}
 
-        function updateSettingsDisplay() {
-            // Risk settings
-            document.getElementById('copyPercentage').value = currentSettings.copy_trade_percentage || 20;
-            document.getElementById('maxTradeAmount').value = currentSettings.max_trade_amount || 100;
-            document.getElementById('dailyLossLimit').value = currentSettings.daily_loss_limit || 200;
-            document.getElementById('maxTradesPerHour').value = currentSettings.max_trades_per_hour || 10;
-            document.getElementById('maxRiskPerTrade').value = currentSettings.max_risk_per_trade_pct || 2.0;
-            document.getElementById('maxOpenMarkets').value = currentSettings.max_open_markets || 10;
-            
-            // Bot settings
-            document.getElementById('minMarketVolume').value = currentSettings.min_market_volume || 1000;
-            document.getElementById('pollInterval').value = currentSettings.poll_interval || 30;
-            document.getElementById('maxDaysResolution').value = currentSettings.max_days_to_resolution || 30;
-            document.getElementById('tradingMode').value = currentSettings.global_trading_mode || 'TEST';
-            document.getElementById('dryRunEnabled').value = currentSettings.dry_run_enabled ? 'true' : 'false';
-            
-            // Update UI state
-            updateBotStatus(currentSettings.global_trading_status || 'STOPPED');
-            updatePercentageValue();
-        }
+function updateSettingsDisplay() {
+    if (!currentSettings) return;
+    
+    // Risk settings
+    document.getElementById('copyPercentage').value = currentSettings.copy_trade_percentage || 20;
+    document.getElementById('maxTradeAmount').value = currentSettings.max_trade_amount || 100;
+    document.getElementById('dailyLossLimit').value = currentSettings.daily_loss_limit || 200;
+    document.getElementById('maxTradesPerHour').value = 10; // Default
+    document.getElementById('maxRiskPerTrade').value = 2.0; // Default
+    document.getElementById('maxOpenMarkets').value = 10; // Default
+    
+    // Bot settings
+    document.getElementById('minMarketVolume').value = currentSettings.min_market_volume || 1000;
+    document.getElementById('pollInterval').value = currentSettings.poll_interval || 30;
+    document.getElementById('maxDaysResolution').value = currentSettings.max_days_to_resolution || 30;
+    document.getElementById('tradingMode').value = currentSettings.global_trading_mode || 'TEST';
+    document.getElementById('dryRunEnabled').value = currentSettings.dry_run_enabled ? 'true' : 'false';
+    document.getElementById('tradeCooldown').value = currentSettings.trade_cooldown || 30;
+    
+    // Update UI state
+    updateBotStatus(currentSettings.global_trading_status || 'STOPPED');
+    updatePercentageValue();
+    
+    // Update quick switch button
+    const quickSwitchBtn = document.getElementById('quickSwitchBtn');
+    if (quickSwitchBtn) {
+        const newMode = currentSettings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST';
+        quickSwitchBtn.innerHTML = `<i class="fas fa-exchange-alt"></i> Switch to ${newMode}`;
+    }
+}
 
-        function updateEventsDisplay(events) {
-            const output = document.getElementById('output');
-            output.innerHTML = events.map(event => 
-                `[${new Date(event.created_at).toLocaleTimeString()}] ${event.message}`
-            ).join('\n');
-            output.scrollTop = output.scrollHeight;
-        }
+function updateEventsDisplay(events) {
+    const output = document.getElementById('output');
+    output.innerHTML = events.map(event => 
+        `[${new Date(event.created_at).toLocaleTimeString()}] ${event.message}`
+    ).join('\n');
+    output.scrollTop = output.scrollHeight;
+}
 
-        // Bot control
-        async function controlBot(action) {
-            try {
-                const response = await fetch(`/api/bot/${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    addNotification('Bot Control', result.message, 'success');
-                    await loadSettings(); // Refresh status
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to control bot: ' + error.message, 'error');
+// Bot control
+async function controlBot(action) {
+    try {
+        const response = await fetch(`/api/bot/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            addNotification('Bot Control', result.message, 'success');
+            await loadSettings(); // Refresh status
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to control bot: ' + error.message, 'error');
+    }
+}
+
+function updateBotStatus(status) {
+    currentBotStatus = status;
+    const statusElement = document.getElementById('statusText');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    
+    statusElement.textContent = status;
+    statusElement.className = `status-${status.toLowerCase()}`;
+    
+    // Update button states
+    startBtn.disabled = status === 'RUNNING';
+    stopBtn.disabled = status === 'STOPPED';
+    pauseBtn.disabled = status === 'PAUSED';
+}
+
+// Wallet management
+function showAddWalletModal() {
+    document.getElementById('addWalletModal').style.display = 'flex';
+}
+
+function hideAddWalletModal() {
+    document.getElementById('addWalletModal').style.display = 'none';
+}
+
+async function addWallet() {
+    const nickname = document.getElementById('walletNickname').value;
+    const address = document.getElementById('walletAddress').value;
+    
+    if (!nickname || !address) {
+        addNotification('Error', 'Please fill in all fields', 'error');
+        return;
+    }
+    
+    if (!address.startsWith('0x') || address.length !== 42) {
+        addNotification('Error', 'Invalid wallet address format', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('nickname', nickname);
+    formData.append('address', address);
+    
+    try {
+        const response = await fetch('/api/wallets', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'Wallet added successfully', 'success');
+            hideAddWalletModal();
+            await refreshWallets();
+            // Clear form
+            document.getElementById('walletNickname').value = '';
+            document.getElementById('walletAddress').value = '';
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to add wallet: ' + error.message, 'error');
+    }
+}
+
+async function deleteWallet(walletId) {
+    if (!confirm('Are you sure you want to delete this wallet?')) return;
+    
+    try {
+        const response = await fetch(`/api/wallets/${walletId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'Wallet deleted successfully', 'success');
+            await refreshWallets();
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to delete wallet: ' + error.message, 'error');
+    }
+}
+
+async function toggleWallet(walletId, newState) {
+    // This would require a PATCH endpoint to update wallet status
+    addNotification('Info', 'Wallet status update feature coming soon', 'info');
+}
+
+// Settings management
+function updatePercentageValue() {
+    const slider = document.getElementById('copyPercentage');
+    const value = document.getElementById('copyPercentageValue');
+    value.textContent = slider.value + '%';
+}
+
+async function updateRiskSettings() {
+    const settings = {
+        copy_trade_percentage: parseFloat(document.getElementById('copyPercentage').value),
+        max_trade_amount: parseFloat(document.getElementById('maxTradeAmount').value),
+        daily_loss_limit: parseFloat(document.getElementById('dailyLossLimit').value),
+        max_trades_per_hour: parseInt(document.getElementById('maxTradesPerHour').value),
+        max_risk_per_trade_pct: parseFloat(document.getElementById('maxRiskPerTrade').value),
+        max_open_markets: parseInt(document.getElementById('maxOpenMarkets').value)
+    };
+    
+    await updateSettings(settings);
+}
+
+async function updateBotSettings() {
+    const settings = {
+        min_market_volume: parseFloat(document.getElementById('minMarketVolume').value),
+        max_days_to_resolution: parseInt(document.getElementById('maxDaysResolution').value),
+        global_trading_mode: document.getElementById('tradingMode').value,
+        dry_run_enabled: document.getElementById('dryRunEnabled').value === 'true',
+        copy_trade_percentage: parseFloat(document.getElementById('copyPercentage').value),
+        max_trade_amount: parseFloat(document.getElementById('maxTradeAmount').value),
+        daily_loss_limit: parseFloat(document.getElementById('dailyLossLimit').value),
+        trade_cooldown: parseInt(document.getElementById('tradeCooldown').value),
+        poll_interval: parseInt(document.getElementById('pollInterval').value)
+    };
+    
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'Settings updated successfully', 'success');
+            await loadSettings(); // This will refresh everything
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to update settings: ' + error.message, 'error');
+    }
+}
+
+async function updateSettings(settings) {
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'Settings updated successfully', 'success');
+            await loadSettings();
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to update settings: ' + error.message, 'error');
+    }
+}
+
+// Discovery
+async function discoverWallets() {
+    addNotification('Discovery', 'Searching for profitable wallets...', 'info');
+    // This would call your discovery endpoint
+}
+
+async function stopDiscovery() {
+    addNotification('Discovery', 'Discovery stopped', 'info');
+}
+
+async function loadDiscoveryResults() {
+    addNotification('Discovery', 'Refreshing discovery results...', 'info');
+}
+
+// Notifications system
+function addNotification(title, message, type = 'info') {
+    const notification = {
+        id: Date.now(),
+        title,
+        message,
+        type,
+        timestamp: new Date(),
+        read: false
+    };
+    
+    notifications.unshift(notification);
+    unreadCount++;
+    
+    if (notifications.length > 50) {
+        notifications = notifications.slice(0, 50);
+    }
+    
+    updateNotificationDisplay();
+    
+    // Auto-remove success/info notifications after 5 seconds
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            removeNotification(notification.id);
+        }, 5000);
+    }
+}
+
+function removeNotification(id) {
+    const notification = notifications.find(n => n.id === id);
+    if (notification && !notification.read) {
+        unreadCount--;
+    }
+    notifications = notifications.filter(n => n.id !== id);
+    updateNotificationDisplay();
+}
+
+function updateNotificationDisplay() {
+    const countElement = document.getElementById('notificationCount');
+    const listElement = document.getElementById('notificationsList');
+    
+    countElement.textContent = unreadCount;
+    
+    if (notifications.length === 0) {
+        listElement.innerHTML = '<div class="no-notifications">No notifications</div>';
+        return;
+    }
+    
+    listElement.innerHTML = notifications.map(notif => `
+        <div class="notification-item ${notif.read ? 'read' : ''}">
+            <div class="notification-title">
+                <i class="fas fa-${getNotificationIcon(notif.type)}"></i>
+                ${notif.title}
+            </div>
+            <div class="notification-message">${notif.message}</div>
+            <div class="notification-time">${formatTime(notif.timestamp)}</div>
+            <div class="notification-actions">
+                <button class="btn-clear" onclick="markAsRead(${notif.id})">
+                    ${notif.read ? 'Read' : 'Mark Read'}
+                </button>
+                <button class="btn-clear" onclick="removeNotification(${notif.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        info: 'info-circle',
+        success: 'check-circle',
+        warning: 'exclamation-triangle',
+        error: 'exclamation-circle',
+        trade: 'exchange-alt'
+    };
+    return icons[type] || 'bell';
+}
+
+function formatTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString() + ' ' + new Date(timestamp).toLocaleDateString();
+}
+
+function markAsRead(id) {
+    const notif = notifications.find(n => n.id === id);
+    if (notif && !notif.read) {
+        notif.read = true;
+        unreadCount--;
+        updateNotificationDisplay();
+    }
+}
+
+function markAllAsRead() {
+    notifications.forEach(n => n.read = true);
+    unreadCount = 0;
+    updateNotificationDisplay();
+}
+
+function clearAllNotifications() {
+    if (confirm('Clear all notifications?')) {
+        notifications = [];
+        unreadCount = 0;
+        updateNotificationDisplay();
+    }
+}
+
+function toggleNotifications() {
+    const panel = document.getElementById('notificationsPanel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    if (panel.style.display === 'block') {
+        markAllAsRead();
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('addWalletModal');
+    if (event.target === modal) {
+        hideAddWalletModal();
+    }
+}
+
+// =============================================================================
+// ENHANCED MODE MANAGEMENT FUNCTIONS
+// =============================================================================
+
+async function switchTradingMode(newMode) {
+    const resetAnalytics = confirm(`Switch to ${newMode} mode? This will ${newMode === 'LIVE' ? 'reset analytics and ' : ''}stop the bot.`);
+    
+    if (!resetAnalytics && newMode === 'LIVE') {
+        if (!confirm('WARNING: Switching to LIVE without resetting analytics will mix test and live results. Continue anyway?')) {
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/settings/switch-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: newMode,
+                reset_analytics: resetAnalytics
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            addNotification('Mode Switch', result.message, 'success');
+            await loadSettings(); // Refresh settings display
+            await refreshStats(); // Refresh stats
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to switch mode: ' + error.message, 'error');
+    }
+}
+
+function quickSwitchMode() {
+    if (!currentSettings) return;
+    const newMode = currentSettings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST';
+    switchTradingMode(newMode);
+}
+
+function showModeSwitchWarning() {
+    const tradingMode = document.getElementById('tradingMode').value;
+    if (tradingMode === 'LIVE') {
+        if (!confirm('WARNING: Switching to LIVE mode will execute real trades with actual funds. Make sure your private key is configured and you understand the risks. Continue?')) {
+            document.getElementById('tradingMode').value = 'TEST';
+            return;
+        }
+    }
+}
+
+function updateHeaderDisplay() {
+    const modeText = document.getElementById('modeText');
+    const dryRunElement = document.getElementById('dryRun');
+    
+    if (currentSettings) {
+        // Update mode text
+        modeText.textContent = currentSettings.global_trading_mode;
+        modeText.className = `mode-${currentSettings.global_trading_mode.toLowerCase()}`;
+        
+        // Update dry run display
+        if (currentSettings.dry_run_enabled) {
+            dryRunElement.style.display = 'inline';
+            dryRunElement.textContent = 'DRY RUN';
+        } else {
+            dryRunElement.style.display = 'none';
+        }
+    }
+}
+
+function updateModeDisplay(settings) {
+    const modeInfo = document.getElementById('modeInfo');
+    const modeText = settings.global_trading_mode === 'LIVE' ? 
+        `<span class="mode-live">LIVE</span>` : 
+        `<span class="mode-test">TEST</span>`;
+    
+    const modeStatus = settings.global_trading_mode === 'LIVE' ?
+        '<span style="color: #4CAF50;">●</span> Real Trading Active' :
+        '<span style="color: #ff9800;">●</span> Test Mode Active';
+    
+    modeInfo.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div>
+                <h4 style="margin: 0; color: #fff;">Current Mode: ${modeText}</h4>
+                <div class="wallet-stats">${modeStatus}</div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn ${settings.global_trading_mode === 'TEST' ? '' : 'stop'}" 
+                        onclick="switchTradingMode('${settings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST'}')"
+                        style="min-width: 140px;">
+                    <i class="fas fa-exchange-alt"></i> 
+                    Switch to ${settings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST'}
+                </button>
+                <button class="btn warning" onclick="resetAnalytics()">
+                    <i class="fas fa-trash"></i> Clear Stats
+                </button>
+            </div>
+        </div>
+        
+        ${settings.test_mode_started ? 
+            `<div class="wallet-stats"><i class="fas fa-play"></i> Test mode started: ${new Date(settings.test_mode_started).toLocaleString()}</div>` : ''}
+        ${settings.live_mode_started ? 
+            `<div class="wallet-stats"><i class="fas fa-rocket"></i> Live mode started: ${new Date(settings.live_mode_started).toLocaleString()}</div>` : ''}
+        ${settings.last_mode_switch ? 
+            `<div class="wallet-stats"><i class="fas fa-sync"></i> Last mode switch: ${new Date(settings.last_mode_switch).toLocaleString()}</div>` : ''}
+        
+        <div style="margin-top: 10px; padding: 10px; background: #2d2d2d; border-radius: 5px;">
+            <div class="wallet-stats">
+                <strong>Dry Run:</strong> ${settings.dry_run_enabled ? 
+                    '<span style="color: #ff9800;">ENABLED (Simulated trades)</span>' : 
+                    '<span style="color: #f44336;">DISABLED (Real trades)</span>'}
+            </div>
+        </div>
+    `;
+    
+    // Update dry run help text based on mode
+    const dryRunHelp = document.getElementById('dryRunHelp');
+    if (settings.global_trading_mode === 'LIVE' && !settings.dry_run_enabled) {
+        dryRunHelp.innerHTML = '<span style="color: #f44336;">⚠️ REAL TRADING - Actual funds at risk</span>';
+    } else if (settings.global_trading_mode === 'LIVE' && settings.dry_run_enabled) {
+        dryRunHelp.innerHTML = '<span style="color: #ff9800;">⚠️ LIVE MODE with Dry Run - No real trades</span>';
+    } else {
+        dryRunHelp.innerHTML = 'Dry run simulates trades without real money';
+    }
+}
+
+// Analytics Management Functions
+async function updateAnalyticsStats() {
+    try {
+        const [statsResponse, tradesResponse, eventsResponse] = await Promise.all([
+            fetch('/api/stats'),
+            fetch('/api/trades?limit=1'),
+            fetch('/api/events?limit=1')
+        ]);
+        
+        let statsHtml = '';
+        
+        if (statsResponse.ok) {
+            const stats = await statsResponse.json();
+            statsHtml += `<div>Total Trades: ${stats.totalTrades}</div>`;
+            statsHtml += `<div>Active Wallets: ${stats.activeWallets}</div>`;
+        }
+        
+        if (tradesResponse.ok) {
+            const trades = await tradesResponse.json();
+            statsHtml += `<div>Recent Trades: ${trades.length}</div>`;
+        }
+        
+        if (eventsResponse.ok) {
+            const events = await eventsResponse.json();
+            statsHtml += `<div>System Events: ${events.length}</div>`;
+        }
+        
+        document.getElementById('analyticsStats').innerHTML = statsHtml;
+        
+    } catch (error) {
+        console.error('Error updating analytics stats:', error);
+    }
+}
+
+async function resetAnalytics() {
+    if (!confirm('🚨 CLEAR ALL STATISTICS 🚨\n\nThis will PERMANENTLY DELETE all trading history and analytics data.\n\nAre you sure you want to clear all stats?')) {
+        return;
+    }
+    
+    const confirmText = prompt('Type "CLEAR STATS" to confirm:');
+    if (confirmText !== 'CLEAR STATS') {
+        addNotification('Cancelled', 'Stats clear cancelled', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/analytics/reset', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'All statistics cleared successfully', 'success');
+            await updateAnalyticsStats();
+            await refreshStats();
+            await loadEvents();
+        } else {
+            const error = await response.json();
+            addNotification('Error', error.detail, 'error');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to clear stats: ' + error.message, 'error');
+    }
+}
+
+async function exportAnalytics() {
+    try {
+        const response = await fetch('/api/analytics/export');
+        if (response.ok) {
+            const data = await response.json();
+            // Create download link
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `trading-analytics-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            addNotification('Success', 'Analytics exported successfully', 'success');
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to export analytics: ' + error.message, 'error');
+    }
+}
+
+async function clearSystemEvents() {
+    if (!confirm('Clear all system events? This will remove the event history but keep trade data.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/events/clear', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'System events cleared', 'success');
+            await loadEvents();
+            await updateAnalyticsStats();
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to clear events: ' + error.message, 'error');
+    }
+}
+
+async function resetToDefaults() {
+    if (!confirm('Reset all settings to default values? This will not affect your trade data.')) {
+        return;
+    }
+    
+    try {
+        const defaultSettings = {
+            copy_trade_percentage: 20.0,
+            max_trade_amount: 100.0,
+            min_market_volume: 1000.0,
+            max_days_to_resolution: 30,
+            trade_cooldown: 30,
+            poll_interval: 30,
+            daily_loss_limit: 200
+        };
+        
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(defaultSettings)
+        });
+        
+        if (response.ok) {
+            addNotification('Success', 'Settings reset to defaults', 'success');
+            await loadSettings();
+        }
+    } catch (error) {
+        addNotification('Error', 'Failed to reset settings: ' + error.message, 'error');
+    }
+}
+
+// Utility functions
+function addOutput(message) {
+    const output = document.getElementById('output');
+    output.textContent += message + '\n';
+    output.scrollTop = output.scrollHeight;
+}
+
+function initializeCharts() {
+    // Initialize empty charts - will be populated with real data
+    const chartConfig = {
+        type: 'line',
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true }
             }
         }
-
-        function updateBotStatus(status) {
-            currentBotStatus = status;
-            const statusElement = document.getElementById('statusText');
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const pauseBtn = document.getElementById('pauseBtn');
-            
-            statusElement.textContent = status;
-            statusElement.className = `status-${status.toLowerCase()}`;
-            
-            // Update button states
-            startBtn.disabled = status === 'RUNNING';
-            stopBtn.disabled = status === 'STOPPED';
-            pauseBtn.disabled = status === 'PAUSED';
+    };
+    
+    new Chart(document.getElementById('profitChart'), {
+        ...chartConfig,
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Daily Profit',
+                data: [0, 0, 0, 0, 0, 0, 0],
+                borderColor: '#4CAF50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)'
+            }]
         }
-
-        // Wallet management
-        function showAddWalletModal() {
-            document.getElementById('addWalletModal').style.display = 'flex';
+    });
+    
+    new Chart(document.getElementById('tradesChart'), {
+        ...chartConfig,
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Trades',
+                data: [0, 0, 0, 0, 0, 0, 0],
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)'
+            }]
         }
+    });
+}
 
-        function hideAddWalletModal() {
-            document.getElementById('addWalletModal').style.display = 'none';
-        }
+function refreshCharts() {
+    // This would update charts with real data
+    console.log('Refreshing charts...');
+}
 
-        async function addWallet() {
-            const nickname = document.getElementById('walletNickname').value;
-            const address = document.getElementById('walletAddress').value;
-            
-            if (!nickname || !address) {
-                addNotification('Error', 'Please fill in all fields', 'error');
-                return;
-            }
-            
-            if (!address.startsWith('0x') || address.length !== 42) {
-                addNotification('Error', 'Invalid wallet address format', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('nickname', nickname);
-            formData.append('address', address);
-            
-            try {
-                const response = await fetch('/api/wallets', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'Wallet added successfully', 'success');
-                    hideAddWalletModal();
-                    await refreshWallets();
-                    // Clear form
-                    document.getElementById('walletNickname').value = '';
-                    document.getElementById('walletAddress').value = '';
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to add wallet: ' + error.message, 'error');
-            }
-        }
+function startDataRefresh() {
+    // Refresh data every 30 seconds
+    setInterval(async () => {
+        await refreshStats();
+        await loadEvents();
+    }, 30000);
+}
 
-        async function deleteWallet(walletId) {
-            if (!confirm('Are you sure you want to delete this wallet?')) return;
-            
-            try {
-                const response = await fetch(`/api/wallets/${walletId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'Wallet deleted successfully', 'success');
-                    await refreshWallets();
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to delete wallet: ' + error.message, 'error');
-            }
-        }
+// Balance management (placeholder)
+async function updateBalance() {
+    addNotification('Info', 'Balance update feature coming soon', 'info');
+}
+</script>
 
-        async function toggleWallet(walletId, newState) {
-            // This would require a PATCH endpoint to update wallet status
-            addNotification('Info', 'Wallet status update feature coming soon', 'info');
-        }
-
-        // Settings management
-        function updatePercentageValue() {
-            const slider = document.getElementById('copyPercentage');
-            const value = document.getElementById('copyPercentageValue');
-            value.textContent = slider.value + '%';
-        }
-
-        async function updateRiskSettings() {
-            const settings = {
-                copy_trade_percentage: parseFloat(document.getElementById('copyPercentage').value),
-                max_trade_amount: parseFloat(document.getElementById('maxTradeAmount').value),
-                daily_loss_limit: parseFloat(document.getElementById('dailyLossLimit').value),
-                max_trades_per_hour: parseInt(document.getElementById('maxTradesPerHour').value),
-                max_risk_per_trade_pct: parseFloat(document.getElementById('maxRiskPerTrade').value),
-                max_open_markets: parseInt(document.getElementById('maxOpenMarkets').value)
-            };
-            
-            await updateSettings(settings);
-        }
-
-        async function updateBotSettings() {
-            const settings = {
-                min_market_volume: parseFloat(document.getElementById('minMarketVolume').value),
-                max_days_to_resolution: parseInt(document.getElementById('maxDaysResolution').value),
-                global_trading_mode: document.getElementById('tradingMode').value,
-                dry_run_enabled: document.getElementById('dryRunEnabled').value === 'true',
-                copy_trade_percentage: parseFloat(document.getElementById('copyPercentage').value),
-                max_trade_amount: parseFloat(document.getElementById('maxTradeAmount').value),
-                daily_loss_limit: parseFloat(document.getElementById('dailyLossLimit').value),
-                trade_cooldown: parseInt(document.getElementById('tradeCooldown').value),
-                poll_interval: parseInt(document.getElementById('pollInterval').value)
-            };
-            
-            await updateSettings(settings);
-        }
-
-        async function updateSettings(settings) {
-            try {
-                const response = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(settings)
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'Settings updated successfully', 'success');
-                    await loadSettings();
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to update settings: ' + error.message, 'error');
-            }
-        }
-
-        // Discovery
-        async function discoverWallets() {
-            addNotification('Discovery', 'Searching for profitable wallets...', 'info');
-            // This would call your discovery endpoint
-        }
-
-        async function stopDiscovery() {
-            addNotification('Discovery', 'Discovery stopped', 'info');
-        }
-
-        async function loadDiscoveryResults() {
-            addNotification('Discovery', 'Refreshing discovery results...', 'info');
-        }
-
-        // Notifications system
-        function addNotification(title, message, type = 'info') {
-            const notification = {
-                id: Date.now(),
-                title,
-                message,
-                type,
-                timestamp: new Date(),
-                read: false
-            };
-            
-            notifications.unshift(notification);
-            unreadCount++;
-            
-            if (notifications.length > 50) {
-                notifications = notifications.slice(0, 50);
-            }
-            
-            updateNotificationDisplay();
-            
-            // Auto-remove success/info notifications after 5 seconds
-            if (type === 'success' || type === 'info') {
-                setTimeout(() => {
-                    removeNotification(notification.id);
-                }, 5000);
-            }
-        }
-
-        function removeNotification(id) {
-            const notification = notifications.find(n => n.id === id);
-            if (notification && !notification.read) {
-                unreadCount--;
-            }
-            notifications = notifications.filter(n => n.id !== id);
-            updateNotificationDisplay();
-        }
-
-        function updateNotificationDisplay() {
-            const countElement = document.getElementById('notificationCount');
-            const listElement = document.getElementById('notificationsList');
-            
-            countElement.textContent = unreadCount;
-            
-            if (notifications.length === 0) {
-                listElement.innerHTML = '<div class="no-notifications">No notifications</div>';
-                return;
-            }
-            
-            listElement.innerHTML = notifications.map(notif => `
-                <div class="notification-item ${notif.read ? 'read' : ''}">
-                    <div class="notification-title">
-                        <i class="fas fa-${getNotificationIcon(notif.type)}"></i>
-                        ${notif.title}
-                    </div>
-                    <div class="notification-message">${notif.message}</div>
-                    <div class="notification-time">${formatTime(notif.timestamp)}</div>
-                    <div class="notification-actions">
-                        <button class="btn-clear" onclick="markAsRead(${notif.id})">
-                            ${notif.read ? 'Read' : 'Mark Read'}
-                        </button>
-                        <button class="btn-clear" onclick="removeNotification(${notif.id})">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function getNotificationIcon(type) {
-            const icons = {
-                info: 'info-circle',
-                success: 'check-circle',
-                warning: 'exclamation-triangle',
-                error: 'exclamation-circle',
-                trade: 'exchange-alt'
-            };
-            return icons[type] || 'bell';
-        }
-
-        function formatTime(timestamp) {
-            return new Date(timestamp).toLocaleTimeString() + ' ' + new Date(timestamp).toLocaleDateString();
-        }
-
-        function markAsRead(id) {
-            const notif = notifications.find(n => n.id === id);
-            if (notif && !notif.read) {
-                notif.read = true;
-                unreadCount--;
-                updateNotificationDisplay();
-            }
-        }
-
-        function markAllAsRead() {
-            notifications.forEach(n => n.read = true);
-            unreadCount = 0;
-            updateNotificationDisplay();
-        }
-
-        function clearAllNotifications() {
-            if (confirm('Clear all notifications?')) {
-                notifications = [];
-                unreadCount = 0;
-                updateNotificationDisplay();
-            }
-        }
-
-        function toggleNotifications() {
-            const panel = document.getElementById('notificationsPanel');
-            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-            if (panel.style.display === 'block') {
-                markAllAsRead();
-            }
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('addWalletModal');
-            if (event.target === modal) {
-                hideAddWalletModal();
-            }
-        }
-
-        // Mode Management Functions
-        function updateModeDisplay(settings) {
-            const modeInfo = document.getElementById('modeInfo');
-            const modeText = settings.global_trading_mode === 'LIVE' ? 
-                `<span class="mode-live">LIVE</span>` : 
-                `<span class="mode-test">TEST</span>`;
-            
-            const modeStatus = settings.global_trading_mode === 'LIVE' ?
-                '<span style="color: #4CAF50;">●</span> Real Trading Active' :
-                '<span style="color: #ff9800;">●</span> Test Mode Active';
-            
-            modeInfo.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <div>
-                        <h4 style="margin: 0; color: #fff;">Current Mode: ${modeText}</h4>
-                        <div class="wallet-stats">${modeStatus}</div>
-                    </div>
-                    <button class="btn ${settings.global_trading_mode === 'TEST' ? '' : 'stop'}" 
-                            onclick="switchTradingMode('${settings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST'}')"
-                            style="min-width: 140px;">
-                        <i class="fas fa-exchange-alt"></i> 
-                        Switch to ${settings.global_trading_mode === 'TEST' ? 'LIVE' : 'TEST'}
-                    </button>
-                </div>
-                
-                ${settings.test_mode_started ? 
-                    `<div class="wallet-stats"><i class="fas fa-play"></i> Test mode started: ${new Date(settings.test_mode_started).toLocaleString()}</div>` : ''}
-                ${settings.live_mode_started ? 
-                    `<div class="wallet-stats"><i class="fas fa-rocket"></i> Live mode started: ${new Date(settings.live_mode_started).toLocaleString()}</div>` : ''}
-                ${settings.last_mode_switch ? 
-                    `<div class="wallet-stats"><i class="fas fa-sync"></i> Last mode switch: ${new Date(settings.last_mode_switch).toLocaleString()}</div>` : ''}
-            `;
-            
-            // Update dry run help text based on mode
-            const dryRunHelp = document.getElementById('dryRunHelp');
-            if (settings.global_trading_mode === 'LIVE' && !settings.dry_run_enabled) {
-                dryRunHelp.innerHTML = '<span style="color: #f44336;">⚠️ REAL TRADING - Actual funds at risk</span>';
-            } else {
-                dryRunHelp.innerHTML = 'Dry run simulates trades without real money';
-            }
-            
-            // Update header mode display
-            const modeTextElement = document.getElementById('modeText');
-            const dryRunElement = document.getElementById('dryRun');
-            
-            modeTextElement.textContent = settings.global_trading_mode;
-            modeTextElement.className = `mode-${settings.global_trading_mode.toLowerCase()}`;
-            
-            if (settings.dry_run_enabled) {
-                dryRunElement.style.display = 'inline';
-            } else {
-                dryRunElement.style.display = 'none';
-            }
-        }
-
-        function showModeSwitchWarning() {
-            const tradingMode = document.getElementById('tradingMode').value;
-            if (tradingMode === 'LIVE') {
-                if (!confirm('WARNING: Switching to LIVE mode will execute real trades with actual funds. Make sure your private key is configured and you understand the risks. Continue?')) {
-                    document.getElementById('tradingMode').value = 'TEST';
-                    return;
-                }
-            }
-        }
-
-        async function switchTradingMode(newMode) {
-            const resetAnalytics = confirm(`Switch to ${newMode} mode? This will ${newMode === 'LIVE' ? 'reset analytics and ' : ''}stop the bot.`);
-            
-            if (!resetAnalytics && newMode === 'LIVE') {
-                if (!confirm('WARNING: Switching to LIVE without resetting analytics will mix test and live results. Continue anyway?')) {
-                    return;
-                }
-            }
-            
-            try {
-                const response = await fetch('/api/settings/switch-mode', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mode: newMode,
-                        reset_analytics: resetAnalytics
-                    })
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    addNotification('Mode Switch', result.message, 'success');
-                    await loadSettings(); // Refresh settings display
-                    await refreshStats(); // Refresh stats
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to switch mode: ' + error.message, 'error');
-            }
-        }
-
-        // Analytics Management Functions
-        async function updateAnalyticsStats() {
-            try {
-                const [statsResponse, tradesResponse, eventsResponse] = await Promise.all([
-                    fetch('/api/stats'),
-                    fetch('/api/trades?limit=1'),
-                    fetch('/api/events?limit=1')
-                ]);
-                
-                let statsHtml = '';
-                
-                if (statsResponse.ok) {
-                    const stats = await statsResponse.json();
-                    statsHtml += `<div>Total Trades: ${stats.totalTrades}</div>`;
-                    statsHtml += `<div>Active Wallets: ${stats.activeWallets}</div>`;
-                }
-                
-                if (tradesResponse.ok) {
-                    const trades = await tradesResponse.json();
-                    statsHtml += `<div>Recent Trades: ${trades.length}</div>`;
-                }
-                
-                if (eventsResponse.ok) {
-                    const events = await eventsResponse.json();
-                    statsHtml += `<div>System Events: ${events.length}</div>`;
-                }
-                
-                document.getElementById('analyticsStats').innerHTML = statsHtml;
-                
-            } catch (error) {
-                console.error('Error updating analytics stats:', error);
-            }
-        }
-
-        async function resetAnalytics() {
-            if (!confirm('🚨 DANGER ZONE 🚨\n\nThis will PERMANENTLY DELETE all trading history, statistics, and analytics data. This action cannot be undone!\n\nAre you absolutely sure you want to reset all analytics?')) {
-                return;
-            }
-            
-            const confirmText = prompt('Type "RESET ANALYTICS" to confirm:');
-            if (confirmText !== 'RESET ANALYTICS') {
-                addNotification('Cancelled', 'Analytics reset cancelled', 'warning');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/analytics/reset', {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'All analytics data has been reset', 'success');
-                    await updateAnalyticsStats();
-                    await refreshStats();
-                    await loadEvents();
-                } else {
-                    const error = await response.json();
-                    addNotification('Error', error.detail, 'error');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to reset analytics: ' + error.message, 'error');
-            }
-        }
-
-        async function exportAnalytics() {
-            try {
-                const response = await fetch('/api/analytics/export');
-                if (response.ok) {
-                    const data = await response.json();
-                    // Create download link
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `trading-analytics-${new Date().toISOString().split('T')[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    addNotification('Success', 'Analytics exported successfully', 'success');
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to export analytics: ' + error.message, 'error');
-            }
-        }
-
-        async function clearSystemEvents() {
-            if (!confirm('Clear all system events? This will remove the event history but keep trade data.')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/events/clear', {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'System events cleared', 'success');
-                    await loadEvents();
-                    await updateAnalyticsStats();
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to clear events: ' + error.message, 'error');
-            }
-        }
-
-        async function resetToDefaults() {
-            if (!confirm('Reset all settings to default values? This will not affect your trade data.')) {
-                return;
-            }
-            
-            try {
-                const defaultSettings = {
-                    copy_trade_percentage: 20.0,
-                    max_trade_amount: 100.0,
-                    min_market_volume: 1000.0,
-                    max_days_to_resolution: 30,
-                    trade_cooldown: 30,
-                    poll_interval: 30,
-                    daily_loss_limit: 200
-                };
-                
-                const response = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(defaultSettings)
-                });
-                
-                if (response.ok) {
-                    addNotification('Success', 'Settings reset to defaults', 'success');
-                    await loadSettings();
-                }
-            } catch (error) {
-                addNotification('Error', 'Failed to reset settings: ' + error.message, 'error');
-            }
-        }
-
-        // Utility functions
-        function addOutput(message) {
-            const output = document.getElementById('output');
-            output.textContent += message + '\n';
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function initializeCharts() {
-            // Initialize empty charts - will be populated with real data
-            const chartConfig = {
-                type: 'line',
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: true }
-                    }
-                }
-            };
-            
-            new Chart(document.getElementById('profitChart'), {
-                ...chartConfig,
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Daily Profit',
-                        data: [0, 0, 0, 0, 0, 0, 0],
-                        borderColor: '#4CAF50',
-                        backgroundColor: 'rgba(76, 175, 80, 0.1)'
-                    }]
-                }
-            });
-            
-            new Chart(document.getElementById('tradesChart'), {
-                ...chartConfig,
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Trades',
-                        data: [0, 0, 0, 0, 0, 0, 0],
-                        borderColor: '#2196F3',
-                        backgroundColor: 'rgba(33, 150, 243, 0.1)'
-                    }]
-                }
-            });
-        }
-
-        function refreshCharts() {
-            // This would update charts with real data
-            console.log('Refreshing charts...');
-        }
-
-        function startDataRefresh() {
-            // Refresh data every 30 seconds
-            setInterval(async () => {
-                await refreshStats();
-                await loadEvents();
-            }, 30000);
-        }
-
-        // Balance management (placeholder)
-        async function updateBalance() {
-            addNotification('Info', 'Balance update feature coming soon', 'info');
-        }
-    </script>
 </body>
 </html>
