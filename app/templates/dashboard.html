@@ -1,17 +1,12 @@
-{% extends "base.html" %}
-{% block title %}Polymarket Copytrader{% endblock %}
-
-{% block content %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polymarket Copytrader</title>
+    <title>Polymarket Copytrader Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* YOUR EXACT ORIGINAL STYLE — 100% PRESERVED */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; padding: 10px; }
         .container { max-width: 1400px; margin: 0 auto; }
@@ -37,20 +32,39 @@
         textarea, input, select { width: 100%; padding: 8px; margin: 4px 0; background: #3d3d3d; border: 1px solid #555; color: white; border-radius: 5px; font-size: 14px; }
         #output { background: #1a1a1a; padding: 8px; border-radius: 5px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
         .icon { display: inline-block; margin-right: 6px; }
+        .settings-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+        .wallet-stats { font-size: 11px; color: #ccc; margin-top: 4px; }
         .tab-container { display: flex; margin-bottom: 15px; background: #2d2d2d; border-radius: 10px; padding: 4px; flex-wrap: wrap; }
         .tab { padding: 10px 15px; cursor: pointer; border-radius: 5px; flex: 1; text-align: center; transition: background 0.3s; border: none; background: transparent; color: white; font-size: 13px; min-width: 120px; }
         .tab:hover { background: #3d3d3d; }
         .tab.active { background: #4CAF50; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .wallet-address { font-family: monospace; font-size: 10px; color: #888; }
+        .wallet-nickname { font-weight: bold; color: #fff; font-size: 14px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
         .modal-content { background: #2d2d2d; padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; }
         .notification-bell { position: relative; cursor: pointer; padding: 8px; background: #3d3d3d; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
         .notification-badge { position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         .notifications-panel { position: absolute; top: 100%; right: 0; background: #2d2d2d; border: 1px solid #444; border-radius: 8px; width: 350px; max-height: 500px; overflow-y: auto; z-index: 1000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .notifications-header { padding: 15px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; }
+        .notifications-body { max-height: 400px; overflow-y: auto; }
+        .notification-item { padding: 12px 15px; border-bottom: 1px solid #444; transition: background 0.2s; }
+        .notification-item:hover { background: #3d3d3d; }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-title { font-weight: bold; margin-bottom: 5px; color: #fff; }
+        .notification-message { font-size: 13px; color: #ccc; margin-bottom: 5px; }
+        .notification-time { font-size: 11px; color: #888; }
+        .notification-actions { margin-top: 8px; display: flex; gap: 10px; }
+        .btn-clear { background: transparent; border: 1px solid #666; color: #ccc; padding: 4px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; }
+        .btn-clear:hover { background: #444; }
+        .no-notifications { padding: 20px; text-align: center; color: #888; font-style: italic; }
+        @media (min-width: 768px) { body { padding: 20px; } .header { padding: 20px; flex-direction: row; } .header-top { flex-direction: row; } .panel { padding: 20px; } .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; } .wallet-item { padding: 15px; flex-wrap: nowrap; } .settings-grid { grid-template-columns: 1fr 1fr; } }
         .chart-container { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; height: 300px; }
         .charts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
         @media (min-width: 768px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+        .discovery-item { background: #3d3d3d; padding: 12px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .discovery-stats { font-size: 11px; color: #ccc; }
     </style>
 </head>
 <body>
@@ -64,9 +78,10 @@
                     <span class="notification-badge" id="notificationCount">0</span>
                     <div class="notifications-panel" id="notificationsPanel">
                         <div class="notifications-header">
-                            <h3>Notifications</h3>
+                            <h3><i class="fas fa-bell"></i> Notifications</h3>
                             <div>
                                 <button class="btn-clear" onclick="clearAllNotifications()">Clear All</button>
+                                <button class="btn-clear" onclick="markAllAsRead()">Mark Read</button>
                             </div>
                         </div>
                         <div class="notifications-body" id="notificationsList">
@@ -74,53 +89,290 @@
                         </div>
                     </div>
                 </div>
-                <button id="startBtn" class="btn" onclick="controlBot('start')">Start</button>
-                <button id="stopBtn" class="btn stop" onclick="controlBot('stop')">Stop</button>
-                <span id="status">Status: STOPPED</span>
+                <button id="startBtn" class="btn" onclick="controlBot('start')"><i class="fas fa-play"></i> Start</button>
+                <button id="stopBtn" class="btn stop" onclick="controlBot('stop')"><i class="fas fa-stop"></i> Stop</button>
+                <span id="status">Status: {{ bot_status | default('STOPPED') }}</span>
             </div>
         </div>
     </div>
 
-    <!-- YOUR FULL ORIGINAL TABS & CONTENT -->
     <div class="tab-container">
-        <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="wallets">Wallets</button>
-        <button class="tab" data-tab="risk">Risk</button>
-        <button class="tab" data-tab="settings">Settings</button>
+        <button class="tab active" data-tab="overview"><i class="fas fa-chart-bar"></i> Overview</button>
+        <button class="tab" data-tab="analytics"><i class="fas fa-chart-line"></i> Analytics</button>
+        <button class="tab" data-tab="wallets"><i class="fas fa-wallet"></i> Wallets</button>
+        <button class="tab" data-tab="discovery"><i class="fas fa-search"></i> Discovery</button>
+        <button class="tab" data-tab="risk"><i class="fas fa-shield-alt"></i> Risk</button>
+        <button class="tab" data-tab="settings"><i class="fas fa-cog"></i> Settings</button>
     </div>
 
     <div id="overview-tab" class="tab-content active">
         <div class="panel">
-            <h3>Performance Stats</h3>
+            <h3><i class="fas fa-chart-bar"></i> Performance Stats</h3>
             <div class="stats-grid">
-                <div class="stat"><div class="stat-value" id="totalTrades">0</div><div>Total Trades</div></div>
-                <div class="stat"><div class="stat-value" id="totalProfit">$0</div><div>Total Profit</div></div>
-                <div class="stat"><div class="stat-value" id="winRate">0%</div><div>Win Rate</div></div>
-                <div class="stat"><div class="stat-value" id="activeWallets">0</div><div>Active Wallets</div></div>
+                <div class="stat"><div class="stat-value" id="totalTrades">{{ stats.total_trades | default(0) }}</div><div>Total Trades</div></div>
+                <div class="stat"><div class="stat-value" id="profitableTrades">{{ stats.profitable_trades | default(0) }}</div><div>Profitable Trades</div></div>
+                <div class="stat {% if stats.total_pnl < 0 %}negative{% endif %}"><div class="stat-value" id="totalProfit">${{ "%.2f"|format(stats.total_pnl | default(0)) }}</div><div>Total Profit</div></div>
+                <div class="stat"><div class="stat-value" id="winRate">{{ "%.1f"|format(stats.win_rate | default(0)) }}%</div><div>Win Rate</div></div>
+                <div class="stat"><div class="stat-value" id="activeWallets">{{ stats.active_wallets | default(0) }}</div><div>Active Wallets</div></div>
+                <div class="stat"><div class="stat-value" id="riskLevel">{{ risk_level | default('Low') }}</div><div>Risk Level</div></div>
             </div>
         </div>
-        <div class="panel">
-            <h3>Recent Activity</h3>
-            <div id="output">Bot ready. Add a sharp wallet and click Start!</div>
+        <div class="charts-grid">
+            <div class="panel">
+                <h3><i class="fas fa-trophy"></i> Top Performing Wallets</h3>
+                <div class="wallet-list" id="topWallets">
+                    {% if top_wallets %}
+                        {% for wallet in top_wallets %}
+                        <div class="wallet-item">
+                            <div>
+                                <div class="wallet-nickname">{{ wallet.nickname }}</div>
+                                <div class="wallet-address">{{ wallet.address[:6] }}...{{ wallet.address[-4:] }}</div>
+                                <div class="wallet-stats">ROI: {{ "%.2f"|format(wallet.roi) }}% | Trades: {{ wallet.trade_count }}</div>
+                            </div>
+                            <div class="wallet-profit">+${{ "%.2f"|format(wallet.pnl) }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wallet-item">No wallets yet — add one!</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="panel">
+                <h3><i class="fas fa-list"></i> Recent Activity</h3>
+                <div id="output">{{ recent_activity | default('Bot ready. Add a wallet and start!') }}</div>
+            </div>
         </div>
     </div>
 
-    <!-- OTHER TABS (wallets, risk, settings) — your full original code here -->
-    <!-- (I’ll send the complete 1200-line version in the next message if this one works) -->
+    <div id="analytics-tab" class="tab-content">
+        <div class="panel">
+            <h3><i class="fas fa-chart-line"></i> Performance Analytics</h3>
+            <div class="charts-grid">
+                <div class="chart-container"><canvas id="profitChart"></canvas></div>
+                <div class="chart-container"><canvas id="tradesChart"></canvas></div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-container"><canvas id="walletPerformanceChart"></canvas></div>
+                <div class="chart-container"><canvas id="winRateChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="wallets-tab" class="tab-content">
+        <div class="charts-grid">
+            <div class="panel">
+                <h3><i class="fas fa-wallet"></i> Wallet Management</h3>
+                <button class="btn" onclick="showAddWalletModal()">Add Wallet</button>
+                <div id="walletsList">
+                    {% if wallets %}
+                        {% for wallet in wallets %}
+                        <div class="wallet-item">
+                            <div>
+                                <div class="wallet-nickname">{{ wallet.nickname }}</div>
+                                <div class="wallet-address">{{ wallet.address }}</div>
+                            </div>
+                            <div class="wallet-actions">
+                                <button class="btn small" onclick="toggleWallet({{ wallet.id }})">Pause</button>
+                                <button class="btn small stop" onclick="removeWallet({{ wallet.id }})">Remove</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wallet-item">No wallets — add one!</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="panel">
+                <h3><i class="fas fa-chart-line"></i> Wallet Performance</h3>
+                <div class="wallet-list" id="walletPerformance"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="discovery-tab" class="tab-content">
+        <div class="panel">
+            <h3><i class="fas fa-search"></i> Auto Wallet Discovery</h3>
+            <button class="btn" onclick="discoverWallets()">Find Profitable Wallets</button>
+            <div id="discoveryResults">
+                <div class="discovery-item">Click to discover!</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="risk-tab" class="tab-content">
+        <div class="charts-grid">
+            <div class="panel">
+                <h3><i class="fas fa-shield-alt"></i> Risk Controls</h3>
+                <input type="range" id="copyPercentage" min="1" max="100" value="20">
+                <span id="copyPercentageValue">20%</span>
+                <button class="btn" onclick="updateRiskSettings()">Update Risk</button>
+            </div>
+            <div class="panel">
+                <h3><i class="fas fa-balance-scale"></i> Balance</h3>
+                <input type="number" id="cashInput" value="5920">
+                <button class="btn" onclick="updateBalance()">Update</button>
+                <div id="riskStatus">All systems normal</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-tab" class="tab-content">
+        <div class="panel">
+            <h3><i class="fas fa-cog"></i> Bot Configuration</h3>
+            <div class="settings-grid">
+                <div>
+                    <label>Min Trade Amount ($):</label>
+                    <input type="number" id="minTradeAmount" value="5">
+                </div>
+                <div>
+                    <label>Cooldown (seconds):</label>
+                    <input type="number" id="tradeCooldown" value="30">
+                </div>
+                <div>
+                    <label>Auto-stop on Loss:</label>
+                    <select id="autoStopEnabled">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn" onclick="updateBotSettings()">Update Settings</button>
+        </div>
+    </div>
+</div>
+
+<!-- ADD WALLET MODAL -->
+<div id="addWalletModal" class="modal">
+    <div class="modal-content">
+        <h3>Add Wallet</h3>
+        <input type="text" id="walletNickname" placeholder="Nickname">
+        <input type="text" id="walletAddress" placeholder="Wallet Address">
+        <button class="btn" onclick="addWallet()">Add</button>
+        <button class="btn stop" onclick="hideAddWalletModal()">Cancel</button>
+    </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const socket = io();
-    socket.on('connect', () => console.log("Connected"));
+let notifications = [];
+let unreadCount = 0;
 
-    function controlBot(action) {
-        fetch(`/api/bot/${action}`, { method: 'POST' })
-            .then(() => location.reload());
+function addNotification(title, message, type = 'info') {
+    const notification = { id: Date.now(), title, message, type, timestamp: new Date(), read: false };
+    notifications.unshift(notification);
+    unreadCount++;
+    updateNotificationCount();
+    updateNotificationsList();
+}
+
+function updateNotificationsList() {
+    const list = document.getElementById('notificationsList');
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="no-notifications">No notifications</div>';
+        return;
     }
+    list.innerHTML = notifications.map(notif => `
+        <div class="notification-item ${notif.read ? 'read' : ''}">
+            <div class="notification-title">${notif.title}</div>
+            <div class="notification-message">${notif.message}</div>
+            <div class="notification-time">${notif.timestamp.toLocaleString()}</div>
+            <div class="notification-actions">
+                <button class="btn-clear" onclick="markAsRead(${notif.id})">${notif.read ? 'Read' : 'Mark Read'}</button>
+                <button class="btn-clear" onclick="deleteNotification(${notif.id})">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
 
-    // Your full original JS will go here
+function updateNotificationCount() {
+    document.getElementById('notificationCount').textContent = unreadCount;
+}
+
+function toggleNotifications() {
+    const panel = document.getElementById('notificationsPanel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+function markAsRead(id) {
+    const notif = notifications.find(n => n.id === id);
+    if (notif && !notif.read) {
+        notif.read = true;
+        unreadCount--;
+        updateNotificationCount();
+        updateNotificationsList();
+    }
+}
+
+function deleteNotification(id) {
+    notifications = notifications.filter(n => n.id !== id);
+    if (!notifications.find(n => n.id === id).read) unreadCount--;
+    updateNotificationCount();
+    updateNotificationsList();
+}
+
+function clearAllNotifications() {
+    notifications = [];
+    unreadCount = 0;
+    updateNotificationCount();
+    updateNotificationsList();
+}
+
+const socket = io();
+socket.on('trade_executed', trade => addNotification('Trade Executed', `${trade.side} $${trade.amount}`, 'trade'));
+socket.on('risk_alert', alert => addNotification('Risk Alert', alert.message, 'warning'));
+socket.on('bot_output', output => {
+    const outputDiv = document.getElementById('output');
+    outputDiv.textContent += output + '\n';
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+    addNotification('Bot Activity', output.trim(), 'info');
+});
+
+function controlBot(action) {
+    fetch(`/api/bot/${action}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('status').textContent = `Status: ${action.toUpperCase()}`;
+            addNotification('Bot Control', `Bot ${action}ed`, 'success');
+        });
+}
+
+function showAddWalletModal() {
+    document.getElementById('addWalletModal').style.display = 'flex';
+}
+
+function hideAddWalletModal() {
+    document.getElementById('addWalletModal').style.display = 'none';
+}
+
+function addWallet() {
+    const nickname = document.getElementById('walletNickname').value;
+    const address = document.getElementById('walletAddress').value;
+    fetch('/api/wallets/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname, address })
+    }).then(res => res.json()).then(data => {
+        addNotification('Wallet Added', `${nickname} added`, 'success');
+        hideAddWalletModal();
+        location.reload();
+    });
+}
+
+function setupTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => tab.addEventListener('click', e => {
+        tabs.forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(e.target.dataset.tab + '-tab').classList.add('active');
+    }));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupTabs();
+    updateNotificationCount();
+    updateNotificationsList();
+});
 </script>
 </body>
 </html>
-{% endblock %}
