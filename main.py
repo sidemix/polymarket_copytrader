@@ -1,23 +1,26 @@
 # app/main.py
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Form, Response, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.session import SessionMiddleware
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SystemEvent, SettingsSingleton
+from app.config import settings
+from passlib.handlers.argon2 import argon2
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="app/static", html=True), name="static")
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)  # THIS LINE WAS MISSING
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# Simple session-based auth (no external lib needed)
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    if request.url.path in ["/login", "/static/", "/favicon.ico"]:
+    if request.url.path in ["/login", "/static/", "/favicon.ico", "/health"]:
         return await call_next(request)
     
     if not request.session.get("authenticated"):
@@ -37,7 +40,6 @@ async def login(request: Request, db: Session = Depends(get_db)):
     password = form.get("password")
     
     user = db.query(User).filter(User.username == username).first()
-    from passlib.handlers.argon2 import argon2
     if user and argon2.verify(password or "", user.password_hash):
         request.session["authenticated"] = True
         request.session["username"] = username
@@ -47,14 +49,14 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
-    # Ensure settings row exists
-    settings = db.query(SettingsSingleton).first()
-    if not settings:
-        settings = SettingsSingleton()
-        db.add(settings)
+    # Ensure settings exist
+    bot_settings = db.query(SettingsSingleton).first()
+    if not bot_settings:
+        bot_settings = SettingsSingleton()
+        db.add(bot_settings)
         db.commit()
 
-    # Safe stats
+    # Stats
     total_trades = db.query(SystemEvent).filter(SystemEvent.event_type == "trade_executed").count()
     active_wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count()
 
@@ -70,16 +72,16 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         "recent_logs": db.query(SystemEvent).order_by(SystemEvent.id.desc()).limit(50).all(),
         "active_wallets_count": active_wallets,
         "top_wallets": [],
-        "bot_status": getattr(settings, "global_trading_status", "STOPPED"),
-        "trading_mode": getattr(settings, "global_trading_mode", "TEST"),
-        "dry_run": getattr(settings, "dry_run_enabled", True),
+        "bot_status": getattr(bot_settings, "global_trading_status", "STOPPED"),
+        "trading_mode": getattr(bot_settings, "global_trading_mode", "TEST"),
+        "dry_run": getattr(bot_settings, "dry_run_enabled", True),
         "risk_level": "Low",
-        "risk_settings": {"copy_percentage": 20, "max_trade_amount": 100, "daily_loss_limit": 200, "max_trades_per_hour": 10},
+        "risk_settings": {"copy_percentage": 20, "max_trade_amount": 100},
         "balances": {"available_cash": 5920, "portfolio_value": 10019},
         "risk_status": "All systems normal",
         "daily_pnl": 0.0,
         "trades_today": 0,
-        "bot_settings": {"min_trade_amount": 5, "trade_cooldown": 30, "auto_stop_enabled": True, "push_notifications": False}
+        "bot_settings": {"min_trade_amount": 5, "trade_cooldown": 30}
     }
     
     return templates.TemplateResponse("dashboard.html", context)
@@ -88,3 +90,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
