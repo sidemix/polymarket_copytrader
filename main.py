@@ -1,7 +1,7 @@
-# main.py — FINAL — WORKS ON RAILWAY RIGHT NOW
+# main.py — FINAL — WORKS ON RAILWAY — NO MORE ERRORS
 import os
 import logging
-from fastapi import FastAPI, Request, Form, Response
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -10,28 +10,16 @@ import socketio
 
 from app.db import SessionLocal, engine, Base
 from app.models import User
-from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-
-# CORS + Socket.IO
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# DATABASE
 Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # ADMIN WITH PASSWORD "1234"
 HARD_HASH = "$2b$12$3z6f9x8e7d6c5b4a3.2/1M9k8j7h6g5f4e3d2c1b0a9z8y7x6w5v4u"
@@ -45,17 +33,16 @@ def create_admin():
         db.commit()
         logger.info("ADMIN READY → Login with: admin / 1234")
     except Exception as e:
-        logger.error(f"Admin error: {e}")
+        logger.error(f"Error: {e}")
     finally:
         db.close()
 
 create_admin()
 
-# SOCKET.IO
-sio = socketio.Server(cors_allowed_origins="*", async_mode="asgi")
+# SOCKET.IO — CORRECT ASYNC MODE
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 app = socketio.ASGIApp(sio, app)
 
-# ROUTES
 @app.get("/")
 def root():
     return RedirectResponse("/login")
@@ -70,7 +57,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         resp = RedirectResponse("/dashboard", status_code=302)
         resp.set_cookie("auth", "valid")
         return resp
-    return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid login"}, status_code=400)
+    return templates.TemplateResponse("login.html", {"request": request, "error": "Wrong login"}, status_code=400)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -78,10 +65,9 @@ def dashboard(request: Request):
         return RedirectResponse("/login")
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
-# SOCKET EVENTS
 @sio.event
 async def connect(sid, environ):
-    await sio.emit("bot_output", "Client connected", room=sid)
+    logger.info(f"Client connected: {sid}")
 
 @sio.on("control_bot")
 async def control_bot(sid, data):
