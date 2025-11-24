@@ -88,13 +88,13 @@ def get_db():
 def initialize_database():
     db = SessionLocal()
     try:
-        # Create admin user
+        # Create admin user with shorter password
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
-            hashed_password = get_password_hash("1234")
+            hashed_password = get_password_hash("admin123")  # Shorter password
             admin = User(username="admin", hashed_password=hashed_password, is_active=True)
             db.add(admin)
-            print("Admin user created: admin / 1234")
+            print("Admin user created: admin / admin123")
         
         # Create default settings
         settings = db.query(Settings).first()
@@ -467,4 +467,3 @@ async def get_events(db: SessionLocal = Depends(get_db)):
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-    
