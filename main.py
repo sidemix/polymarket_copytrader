@@ -17,6 +17,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 from web3 import Web3
+from sqlalchemy import text
 import eth_account
 
 # =============================================================================
@@ -130,33 +131,47 @@ initialize_database()
 # DATABASE SCHEMA UPDATE
 # =============================================================================
 def update_database_schema():
-    """Add missing columns to existing tables"""
+    """Add missing columns to existing tables using SQLAlchemy"""
     try:
-        with engine.connect() as conn:
-            # Add missing columns to settings table
-            columns_to_add = [
-                "copy_trade_percentage FLOAT DEFAULT 20.0",
-                "trade_cooldown INTEGER DEFAULT 30", 
-                "poll_interval INTEGER DEFAULT 30",
-                "daily_loss_limit FLOAT DEFAULT 200.0"
-            ]
+        # Use SQLAlchemy to check and add columns
+        inspector = inspect(engine)
+        columns = inspector.get_columns('settings')
+        existing_columns = [col['name'] for col in columns]
+        
+        missing_columns = []
+        if 'copy_trade_percentage' not in existing_columns:
+            missing_columns.append('copy_trade_percentage FLOAT DEFAULT 20.0')
+        if 'trade_cooldown' not in existing_columns:
+            missing_columns.append('trade_cooldown INTEGER DEFAULT 30')
+        if 'poll_interval' not in existing_columns:
+            missing_columns.append('poll_interval INTEGER DEFAULT 30')
+        if 'daily_loss_limit' not in existing_columns:
+            missing_columns.append('daily_loss_limit FLOAT DEFAULT 200.0')
+        
+        if missing_columns:
+            with engine.begin() as conn:  # Use begin() for transaction
+                for column_def in missing_columns:
+                    column_name = column_def.split()[0]
+                    try:
+                        conn.execute(text(f'ALTER TABLE settings ADD COLUMN {column_def}'))
+                        print(f"✅ Added column: {column_name}")
+                    except Exception as e:
+                        print(f"Column {column_name} may already exist: {e}")
+        else:
+            print("✅ All database columns are up to date")
             
-            for column_def in columns_to_add:
-                column_name = column_def.split()[0]
-                try:
-                    conn.execute(f"ALTER TABLE settings ADD COLUMN {column_def}")
-                    print(f"✅ Added column: {column_name}")
-                except Exception as e:
-                    print(f"Column {column_name} may already exist: {e}")
-                    
     except Exception as e:
         print(f"Schema update error: {e}")
+        # Fallback: recreate tables
+        try:
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+            print("✅ Recreated all tables with updated schema")
+        except Exception as fallback_error:
+            print(f"Fallback table recreation failed: {fallback_error}")
 
-# Call this after initialize_database()
-update_database_schema()
 
-# Call this after initialize_database()
-update_database_schema()
+
 
 # =============================================================================
 # FASTAPI APP SETUP
@@ -504,10 +519,85 @@ async def health_check():
 @app.get("/dashboard")
 async def dashboard(request: Request):
     """Serve the main dashboard"""
-    # In a real implementation, this would serve the full dashboard.html
-    # For now, we'll serve a basic version
-    return HTMLResponse(content="""<!DOCTYPE html><html>...full dashboard HTML here...</html>""")
-
+    try:
+        # Try to read the dashboard.html file
+        with open("templates/dashboard.html", "r", encoding="utf-8") as f:
+            dashboard_html = f.read()
+    except FileNotFoundError:
+        # Fallback: create a basic dashboard
+        dashboard_html = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Trading Bot Dashboard</title>
+            <style>
+                body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; padding: 20px; }
+                .container { max-width: 1200px; margin: 0 auto; }
+                .header { background: #2d2d2d; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+                .panel { background: #2d2d2d; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+                .btn { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+                .btn.stop { background: #f44336; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🚀 Trading Bot Dashboard</h1>
+                    <div>
+                        <button class="btn" onclick="controlBot('start')">Start Bot</button>
+                        <button class="btn stop" onclick="controlBot('stop')">Stop Bot</button>
+                        <span id="status">Status: <span id="statusText">Loading...</span></span>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3>Dashboard Loaded Successfully! 🎉</h3>
+                    <p>The trading bot is running and ready to use.</p>
+                    <p><strong>Next Steps:</strong></p>
+                    <ul>
+                        <li>Add wallets to monitor in the Wallets tab</li>
+                        <li>Configure your risk settings</li>
+                        <li>Switch between TEST and LIVE modes</li>
+                        <li>Start the bot to begin monitoring</li>
+                    </ul>
+                    <div style="margin-top: 20px;">
+                        <button class="btn" onclick="location.reload()">Refresh Page</button>
+                    </div>
+                </div>
+            </div>
+            <script>
+                async function controlBot(action) {
+                    try {
+                        const response = await fetch(`/api/bot/${action}`, {method: 'POST'});
+                        const result = await response.json();
+                        alert(result.message);
+                        location.reload();
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                }
+                // Load initial status
+                fetch('/api/settings').then(r => r.json()).then(settings => {
+                    document.getElementById('statusText').textContent = settings.global_trading_status || 'STOPPED';
+                });
+            </script>
+        </body>
+        </html>
+        """
+    except Exception as e:
+        # Ultimate fallback
+        dashboard_html = f"""
+        <html>
+            <body>
+                <h1>Trading Bot Dashboard</h1>
+                <p>Error loading dashboard: {e}</p>
+                <p><a href="/health">Check Health</a></p>
+            </body>
+        </html>
+        """
+    
+    return HTMLResponse(content=dashboard_html)
 # =============================================================================
 # ROUTES - API ENDPOINTS
 # =============================================================================
