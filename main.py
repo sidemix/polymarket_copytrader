@@ -508,14 +508,6 @@ monitor_task = None
 # =============================================================================
 # ROUTES - DASHBOARD & AUTH
 # =============================================================================
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/dashboard")
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "database": "connected"}
-
 @app.get("/dashboard")
 async def dashboard(request: Request):
     """Serve the main dashboard"""
@@ -525,79 +517,7 @@ async def dashboard(request: Request):
             dashboard_html = f.read()
     except FileNotFoundError:
         # Fallback: create a basic dashboard
-        dashboard_html = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Trading Bot Dashboard</title>
-            <style>
-                body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; padding: 20px; }
-                .container { max-width: 1200px; margin: 0 auto; }
-                .header { background: #2d2d2d; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-                .panel { background: #2d2d2d; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-                .btn { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
-                .btn.stop { background: #f44336; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🚀 Trading Bot Dashboard</h1>
-                    <div>
-                        <button class="btn" onclick="controlBot('start')">Start Bot</button>
-                        <button class="btn stop" onclick="controlBot('stop')">Stop Bot</button>
-                        <span id="status">Status: <span id="statusText">Loading...</span></span>
-                    </div>
-                </div>
-                <div class="panel">
-                    <h3>Dashboard Loaded Successfully! 🎉</h3>
-                    <p>The trading bot is running and ready to use.</p>
-                    <p><strong>Next Steps:</strong></p>
-                    <ul>
-                        <li>Add wallets to monitor in the Wallets tab</li>
-                        <li>Configure your risk settings</li>
-                        <li>Switch between TEST and LIVE modes</li>
-                        <li>Start the bot to begin monitoring</li>
-                    </ul>
-                    <div style="margin-top: 20px;">
-                        <button class="btn" onclick="location.reload()">Refresh Page</button>
-                    </div>
-                </div>
-            </div>
-            <script>
-                async function controlBot(action) {
-                    try {
-                        const response = await fetch(`/api/bot/${action}`, {method: 'POST'});
-                        const result = await response.json();
-                        alert(result.message);
-                        location.reload();
-                    } catch (error) {
-                        alert('Error: ' + error.message);
-                    }
-                }
-                // Load initial status
-                fetch('/api/settings').then(r => r.json()).then(settings => {
-                    document.getElementById('statusText').textContent = settings.global_trading_status || 'STOPPED';
-                });
-            </script>
-        </body>
-        </html>
-        """
-    except Exception as e:
-        # Ultimate fallback
-        dashboard_html = f"""
-        <html>
-            <body>
-                <h1>Trading Bot Dashboard</h1>
-                <p>Error loading dashboard: {e}</p>
-                <p><a href="/health">Check Health</a></p>
-            </body>
-        </html>
-        """
-    
-    return HTMLResponse(content=dashboard_html)
+        dashboard_html = """...minimal HTML..."""
 # =============================================================================
 # ROUTES - API ENDPOINTS
 # =============================================================================
