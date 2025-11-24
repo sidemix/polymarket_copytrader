@@ -101,7 +101,7 @@ class SystemEvent(Base):
     event_type = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
     level = Column(String(20), default="INFO")
-    metadata = Column(JSON, default=dict)
+    event_metadata = Column(JSON, default=dict)  # Changed from 'metadata' to 'event_metadata'
     created_at = Column(DateTime, default=datetime.utcnow)
 
 # Create tables
@@ -463,7 +463,7 @@ async def update_settings(request: Request, db: SessionLocal = Depends(get_db)):
         event_type="SETTINGS_UPDATED",
         message="Bot settings updated",
         level="INFO",
-        metadata=data
+        event_metadata=data  # Updated to use event_metadata
     )
     db.add(event)
     db.commit()
@@ -501,7 +501,7 @@ async def get_events(db: SessionLocal = Depends(get_db)):
             "message": event.message,
             "level": event.level,
             "created_at": event.created_at.isoformat() if event.created_at else None,
-            "metadata": event.metadata
+            "metadata": event.event_metadata  # Updated to use event_metadata
         }
         for event in events
     ]
