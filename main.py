@@ -126,12 +126,14 @@ def initialize_database():
 
 initialize_database()
 
+# =============================================================================
+# DATABASE SCHEMA UPDATE
+# =============================================================================
 def update_database_schema():
     """Add missing columns to existing tables"""
     try:
-        # Add missing columns to settings table
         with engine.connect() as conn:
-            # Check if columns exist and add them if they don't
+            # Add missing columns to settings table
             columns_to_add = [
                 "copy_trade_percentage FLOAT DEFAULT 20.0",
                 "trade_cooldown INTEGER DEFAULT 30", 
@@ -149,6 +151,9 @@ def update_database_schema():
                     
     except Exception as e:
         print(f"Schema update error: {e}")
+
+# Call this after initialize_database()
+update_database_schema()
 
 # Call this after initialize_database()
 update_database_schema()
