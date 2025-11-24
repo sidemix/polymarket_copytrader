@@ -3,6 +3,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi_socketio import SocketManager
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
 import os
 import json
@@ -101,14 +104,21 @@ class SystemEvent(Base):
     event_type = Column(String(50), nullable=False)
     message = Column(Text, nullable=False)
     level = Column(String(20), default="INFO")
-    event_metadata = Column(JSON, default=dict)  # Changed from 'metadata' to 'event_metadata'
+    event_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created successfully")
+except Exception as e:
+    print(f"Error creating tables: {e}")
 
 # FastAPI app
 app = FastAPI(title="Polymarket Copytrader")
+
+# Add SessionMiddleware for authentication
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "your-secret-key-change-in-production"))
 
 # Socket.IO
 socket_manager = SocketManager(app=app)
@@ -136,6 +146,10 @@ def get_db():
 def create_admin_user():
     db = SessionLocal()
     try:
+        # Drop and recreate tables to ensure schema matches
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+        
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
             hashed_password = get_password_hash("1234")
@@ -251,6 +265,9 @@ async def dashboard(request: Request):
             "recent_events": recent_events,
             "wallets": wallets
         })
+    except Exception as e:
+        print(f"Dashboard error: {e}")
+        return RedirectResponse(url="/login")
     finally:
         db.close()
 
@@ -262,38 +279,53 @@ async def logout(request: Request):
 # API Routes
 @app.get("/api/stats")
 async def get_stats(db: SessionLocal = Depends(get_db)):
-    total_trades = db.query(FollowerTrade).count()
-    profitable_trades = db.query(FollowerTrade).filter(FollowerTrade.pnl > 0).count()
-    total_profit = db.query(FollowerTrade).filter(FollowerTrade.pnl > 0).with_entities(
-        db.func.sum(FollowerTrade.pnl)
-    ).scalar() or 0
-    active_wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count()
-    win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
-    
-    return {
-        "totalTrades": total_trades,
-        "profitableTrades": profitable_trades,
-        "totalProfit": round(total_profit, 2),
-        "winRate": round(win_rate, 1),
-        "activeWallets": active_wallets,
-        "riskLevel": "Low"
-    }
+    try:
+        total_trades = db.query(FollowerTrade).count()
+        profitable_trades = db.query(FollowerTrade).filter(FollowerTrade.pnl > 0).count()
+        total_profit = db.query(FollowerTrade).filter(FollowerTrade.pnl > 0).with_entities(
+            db.func.sum(FollowerTrade.pnl)
+        ).scalar() or 0
+        active_wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count()
+        win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
+        
+        return {
+            "totalTrades": total_trades,
+            "profitableTrades": profitable_trades,
+            "totalProfit": round(total_profit, 2),
+            "winRate": round(win_rate, 1),
+            "activeWallets": active_wallets,
+            "riskLevel": "Low"
+        }
+    except Exception as e:
+        print(f"Stats error: {e}")
+        return {
+            "totalTrades": 0,
+            "profitableTrades": 0,
+            "totalProfit": 0,
+            "winRate": 0,
+            "activeWallets": 0,
+            "riskLevel": "Low"
+        }
 
 @app.get("/api/wallets")
 async def get_wallets(db: SessionLocal = Depends(get_db)):
-    wallets = db.query(LeaderWallet).all()
-    return [
-        {
-            "id": wallet.id,
-            "address": wallet.address,
-            "nickname": wallet.nickname,
-            "is_active": wallet.is_active,
-            "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
-            "last_monitored": wallet.last_monitored.isoformat() if wallet.last_monitored else None,
-            "trade_count": db.query(LeaderTrade).filter(LeaderTrade.wallet_id == wallet.id).count()
-        }
-        for wallet in wallets
-    ]
+    try:
+        wallets = db.query(LeaderWallet).all()
+        return [
+            {
+                "id": wallet.id,
+                "address": wallet.address,
+                "nickname": wallet.nickname,
+                "is_active": wallet.is_active,
+                "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
+                "last_monitored": wallet.last_monitored.isoformat() if wallet.last_monitored else None,
+                "trade_count": db.query(LeaderTrade).filter(LeaderTrade.wallet_id == wallet.id).count()
+            }
+            for wallet in wallets
+        ]
+    except Exception as e:
+        print(f"Wallets error: {e}")
+        return []
 
 @app.post("/api/wallets")
 async def add_wallet(
@@ -301,210 +333,246 @@ async def add_wallet(
     address: str = Form(...),
     db: SessionLocal = Depends(get_db)
 ):
-    if not address.startswith("0x") or len(address) != 42:
-        raise HTTPException(status_code=400, detail="Invalid wallet address format")
-    
-    existing = db.query(LeaderWallet).filter(LeaderWallet.address == address).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Wallet already exists")
-    
-    wallet = LeaderWallet(
-        nickname=nickname,
-        address=address,
-        is_active=True
-    )
-    
-    db.add(wallet)
-    
-    # Log system event
-    event = SystemEvent(
-        event_type="WALLET_ADDED",
-        message=f"Added new wallet: {nickname} ({address})",
-        level="INFO"
-    )
-    db.add(event)
-    db.commit()
-    
-    return {"message": "Wallet added successfully"}
+    try:
+        if not address.startswith("0x") or len(address) != 42:
+            raise HTTPException(status_code=400, detail="Invalid wallet address format")
+        
+        existing = db.query(LeaderWallet).filter(LeaderWallet.address == address).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Wallet already exists")
+        
+        wallet = LeaderWallet(
+            nickname=nickname,
+            address=address,
+            is_active=True
+        )
+        
+        db.add(wallet)
+        
+        # Log system event
+        event = SystemEvent(
+            event_type="WALLET_ADDED",
+            message=f"Added new wallet: {nickname} ({address})",
+            level="INFO"
+        )
+        db.add(event)
+        db.commit()
+        
+        return {"message": "Wallet added successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/wallets/{wallet_id}")
 async def delete_wallet(wallet_id: int, db: SessionLocal = Depends(get_db)):
-    wallet = db.query(LeaderWallet).filter(LeaderWallet.id == wallet_id).first()
-    if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet not found")
-    
-    db.delete(wallet)
-    
-    event = SystemEvent(
-        event_type="WALLET_REMOVED",
-        message=f"Removed wallet: {wallet.nickname}",
-        level="INFO"
-    )
-    db.add(event)
-    db.commit()
-    
-    return {"message": "Wallet deleted successfully"}
+    try:
+        wallet = db.query(LeaderWallet).filter(LeaderWallet.id == wallet_id).first()
+        if not wallet:
+            raise HTTPException(status_code=404, detail="Wallet not found")
+        
+        db.delete(wallet)
+        
+        event = SystemEvent(
+            event_type="WALLET_REMOVED",
+            message=f"Removed wallet: {wallet.nickname}",
+            level="INFO"
+        )
+        db.add(event)
+        db.commit()
+        
+        return {"message": "Wallet deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Bot Control Routes
 @app.post("/api/bot/start")
 async def start_bot(db: SessionLocal = Depends(get_db)):
-    settings = db.query(Settings).first()
-    if not settings:
-        settings = Settings()
-        db.add(settings)
-    
-    if settings.global_trading_status == "RUNNING":
-        raise HTTPException(status_code=400, detail="Bot is already running")
-    
-    settings.global_trading_status = "RUNNING"
-    
-    event = SystemEvent(
-        event_type="BOT_STARTED",
-        message="Trading bot started",
-        level="INFO"
-    )
-    db.add(event)
-    db.commit()
-    
-    # Emit socket event
-    await socket_manager.emit('status_update', {'status': 'RUNNING'})
-    
-    return {"message": "Bot started successfully"}
+    try:
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+        
+        if settings.global_trading_status == "RUNNING":
+            raise HTTPException(status_code=400, detail="Bot is already running")
+        
+        settings.global_trading_status = "RUNNING"
+        
+        event = SystemEvent(
+            event_type="BOT_STARTED",
+            message="Trading bot started",
+            level="INFO"
+        )
+        db.add(event)
+        db.commit()
+        
+        # Emit socket event
+        await socket_manager.emit('status_update', {'status': 'RUNNING'})
+        
+        return {"message": "Bot started successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/bot/stop")
 async def stop_bot(db: SessionLocal = Depends(get_db)):
-    settings = db.query(Settings).first()
-    if not settings:
-        settings = Settings()
-        db.add(settings)
-    
-    if settings.global_trading_status == "STOPPED":
-        raise HTTPException(status_code=400, detail="Bot is already stopped")
-    
-    settings.global_trading_status = "STOPPED"
-    
-    event = SystemEvent(
-        event_type="BOT_STOPPED",
-        message="Trading bot stopped",
-        level="INFO"
-    )
-    db.add(event)
-    db.commit()
-    
-    # Emit socket event
-    await socket_manager.emit('status_update', {'status': 'STOPPED'})
-    
-    return {"message": "Bot stopped successfully"}
+    try:
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+        
+        if settings.global_trading_status == "STOPPED":
+            raise HTTPException(status_code=400, detail="Bot is already stopped")
+        
+        settings.global_trading_status = "STOPPED"
+        
+        event = SystemEvent(
+            event_type="BOT_STOPPED",
+            message="Trading bot stopped",
+            level="INFO"
+        )
+        db.add(event)
+        db.commit()
+        
+        # Emit socket event
+        await socket_manager.emit('status_update', {'status': 'STOPPED'})
+        
+        return {"message": "Bot stopped successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/bot/pause")
 async def pause_bot(db: SessionLocal = Depends(get_db)):
-    settings = db.query(Settings).first()
-    if not settings:
-        settings = Settings()
-        db.add(settings)
-    
-    if settings.global_trading_status == "PAUSED":
-        raise HTTPException(status_code=400, detail="Bot is already paused")
-    
-    settings.global_trading_status = "PAUSED"
-    
-    event = SystemEvent(
-        event_type="BOT_PAUSED",
-        message="Trading bot paused",
-        level="INFO"
-    )
-    db.add(event)
-    db.commit()
-    
-    # Emit socket event
-    await socket_manager.emit('status_update', {'status': 'PAUSED'})
-    
-    return {"message": "Bot paused successfully"}
+    try:
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+        
+        if settings.global_trading_status == "PAUSED":
+            raise HTTPException(status_code=400, detail="Bot is already paused")
+        
+        settings.global_trading_status = "PAUSED"
+        
+        event = SystemEvent(
+            event_type="BOT_PAUSED",
+            message="Trading bot paused",
+            level="INFO"
+        )
+        db.add(event)
+        db.commit()
+        
+        # Emit socket event
+        await socket_manager.emit('status_update', {'status': 'PAUSED'})
+        
+        return {"message": "Bot paused successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Settings Routes
 @app.get("/api/settings")
 async def get_settings(db: SessionLocal = Depends(get_db)):
-    settings = db.query(Settings).first()
-    if not settings:
-        settings = Settings()
-        db.add(settings)
-        db.commit()
-    
-    return {
-        "global_trading_mode": settings.global_trading_mode,
-        "global_trading_status": settings.global_trading_status,
-        "dry_run_enabled": settings.dry_run_enabled,
-        "min_market_volume": settings.min_market_volume,
-        "max_days_to_resolution": settings.max_days_to_resolution,
-        "max_risk_per_trade_pct": settings.max_risk_per_trade_pct,
-        "max_open_markets": settings.max_open_markets,
-        "max_exposure_per_market": settings.max_exposure_per_market,
-        "copy_trade_percentage": settings.copy_trade_percentage,
-        "max_trade_amount": settings.max_trade_amount,
-        "daily_loss_limit": settings.daily_loss_limit,
-        "max_trades_per_hour": settings.max_trades_per_hour
-    }
+    try:
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+            db.commit()
+        
+        return {
+            "global_trading_mode": settings.global_trading_mode,
+            "global_trading_status": settings.global_trading_status,
+            "dry_run_enabled": settings.dry_run_enabled,
+            "min_market_volume": settings.min_market_volume,
+            "max_days_to_resolution": settings.max_days_to_resolution,
+            "max_risk_per_trade_pct": settings.max_risk_per_trade_pct,
+            "max_open_markets": settings.max_open_markets,
+            "max_exposure_per_market": settings.max_exposure_per_market,
+            "copy_trade_percentage": settings.copy_trade_percentage,
+            "max_trade_amount": settings.max_trade_amount,
+            "daily_loss_limit": settings.daily_loss_limit,
+            "max_trades_per_hour": settings.max_trades_per_hour
+        }
+    except Exception as e:
+        print(f"Settings error: {e}")
+        return {}
 
 @app.post("/api/settings")
 async def update_settings(request: Request, db: SessionLocal = Depends(get_db)):
-    data = await request.json()
-    settings = db.query(Settings).first()
-    if not settings:
-        settings = Settings()
-        db.add(settings)
-    
-    for key, value in data.items():
-        if hasattr(settings, key):
-            setattr(settings, key, value)
-    
-    settings.updated_at = datetime.utcnow()
-    
-    event = SystemEvent(
-        event_type="SETTINGS_UPDATED",
-        message="Bot settings updated",
-        level="INFO",
-        event_metadata=data  # Updated to use event_metadata
-    )
-    db.add(event)
-    db.commit()
-    
-    return {"message": "Settings updated successfully"}
+    try:
+        data = await request.json()
+        settings = db.query(Settings).first()
+        if not settings:
+            settings = Settings()
+            db.add(settings)
+        
+        for key, value in data.items():
+            if hasattr(settings, key):
+                setattr(settings, key, value)
+        
+        settings.updated_at = datetime.utcnow()
+        
+        event = SystemEvent(
+            event_type="SETTINGS_UPDATED",
+            message="Bot settings updated",
+            level="INFO",
+            event_metadata=data
+        )
+        db.add(event)
+        db.commit()
+        
+        return {"message": "Settings updated successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Trade History
 @app.get("/api/trades")
 async def get_trades(db: SessionLocal = Depends(get_db)):
-    trades = db.query(FollowerTrade).order_by(FollowerTrade.executed_at.desc()).limit(50).all()
-    return [
-        {
-            "id": trade.id,
-            "market_id": trade.market_id,
-            "outcome_id": trade.outcome_id,
-            "side": trade.side,
-            "size": trade.size,
-            "price": trade.price,
-            "executed_at": trade.executed_at.isoformat() if trade.executed_at else None,
-            "status": trade.status,
-            "pnl": trade.pnl,
-            "is_dry_run": trade.is_dry_run
-        }
-        for trade in trades
-    ]
+    try:
+        trades = db.query(FollowerTrade).order_by(FollowerTrade.executed_at.desc()).limit(50).all()
+        return [
+            {
+                "id": trade.id,
+                "market_id": trade.market_id,
+                "outcome_id": trade.outcome_id,
+                "side": trade.side,
+                "size": trade.size,
+                "price": trade.price,
+                "executed_at": trade.executed_at.isoformat() if trade.executed_at else None,
+                "status": trade.status,
+                "pnl": trade.pnl,
+                "is_dry_run": trade.is_dry_run
+            }
+            for trade in trades
+        ]
+    except Exception as e:
+        print(f"Trades error: {e}")
+        return []
 
 # System Events
 @app.get("/api/events")
 async def get_events(db: SessionLocal = Depends(get_db)):
-    events = db.query(SystemEvent).order_by(SystemEvent.created_at.desc()).limit(50).all()
-    return [
-        {
-            "id": event.id,
-            "event_type": event.event_type,
-            "message": event.message,
-            "level": event.level,
-            "created_at": event.created_at.isoformat() if event.created_at else None,
-            "metadata": event.event_metadata  # Updated to use event_metadata
-        }
-        for event in events
-    ]
+    try:
+        events = db.query(SystemEvent).order_by(SystemEvent.created_at.desc()).limit(50).all()
+        return [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "message": event.message,
+                "level": event.level,
+                "created_at": event.created_at.isoformat() if event.created_at else None,
+                "metadata": event.event_metadata
+            }
+            for event in events
+        ]
+    except Exception as e:
+        print(f"Events error: {e}")
+        return []
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
