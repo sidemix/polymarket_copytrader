@@ -1,4 +1,4 @@
-# app/main.py
+# main.py (ROOT LEVEL)
 import os
 import logging
 from fastapi import FastAPI, Depends, Request, Form, status
@@ -9,9 +9,9 @@ from fastapi_login import LoginManager
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
-from .db import SessionLocal, engine, Base
-from .models import User
-from .config import settings
+from app.db import SessionLocal, engine, Base
+from app.models import User
+from app.config import settings
 
 # ==============================
 # Logging & App Setup
@@ -152,9 +152,9 @@ async def startup_event():
     logger.info(f"Mode: {settings.ENVIRONMENT} | DRY_RUN: {settings.DRY_RUN}")
 
 # ==============================
-# Railway Fix: Auto-detect PORT
+# Railway PORT Fix
 # ==============================
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
