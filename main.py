@@ -88,13 +88,14 @@ def get_db():
 def initialize_database():
     db = SessionLocal()
     try:
-        # Create admin user with shorter password
+        # Create admin user with simple password
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
-            hashed_password = get_password_hash("admin123")  # Shorter password
+            # Use a simple password that won't trigger bcrypt limits
+            hashed_password = get_password_hash("admin")  # Simple password
             admin = User(username="admin", hashed_password=hashed_password, is_active=True)
             db.add(admin)
-            print("Admin user created: admin / admin123")
+            print("✅ Admin user created: admin / admin")
         
         # Create default settings
         settings = db.query(Settings).first()
