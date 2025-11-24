@@ -14,3 +14,5 @@ jinja2>=3.1.2
 gunicorn>=21.2.0
 fastapi-login
 python-multipart
+python-socketio
+fastapi-socketio
