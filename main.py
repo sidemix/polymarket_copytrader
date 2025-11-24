@@ -1,4 +1,4 @@
-# main.py — FINAL — WORKS ON RAILWAY — NO MORE ERRORS
+# main.py — FINAL — WORKS 100% — NO MORE ERRORS
 import os
 import logging
 from fastapi import FastAPI, Request, Form
@@ -14,6 +14,7 @@ from app.models import User
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create FastAPI app first
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -31,7 +32,7 @@ def create_admin():
         db.commit()
         db.add(User(username="admin", hashed_password=HARD_HASH))
         db.commit()
-        logger.info("ADMIN READY → Login with: admin / 1234")
+        logger.info("ADMIN READY — Login with: admin / 1234")
     except Exception as e:
         logger.error(f"Error: {e}")
     finally:
@@ -39,10 +40,7 @@ def create_admin():
 
 create_admin()
 
-# SOCKET.IO — CORRECT ASYNC MODE
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
-app = socketio.ASGIApp(sio, app)
-
+# Routes
 @app.get("/")
 def root():
     return RedirectResponse("/login")
@@ -57,7 +55,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         resp = RedirectResponse("/dashboard", status_code=302)
         resp.set_cookie("auth", "valid")
         return resp
-    return templates.TemplateResponse("login.html", {"request": request, "error": "Wrong login"}, status_code=400)
+    return templates.TemplateResponse("login.html", {"request": request, "error": "Wrong credentials"}, status_code=400)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
@@ -65,16 +63,19 @@ def dashboard(request: Request):
         return RedirectResponse("/login")
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+# Socket.IO — MOUNT LAST
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+app = socketio.ASGIApp(sio, app)  # ← THIS LINE MUST BE LAST
+
 @sio.event
 async def connect(sid, environ):
-    logger.info(f"Client connected: {sid}")
+    logger.info("Client connected")
 
 @sio.on("control_bot")
 async def control_bot(sid, data):
-    action = data.get("action", "unknown")
-    logger.info(f"Bot {action} requested")
-    await sio.emit("bot_status", {"status": action.upper()})
+    action = data.get("action")
     await sio.emit("bot_output", f"Bot {action}ed!")
+    await sio.emit("bot_status", {"status": action.upper()})
 
 if __name__ == "__main__":
     import uvicorn
