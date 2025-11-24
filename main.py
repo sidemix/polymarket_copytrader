@@ -65,6 +65,9 @@ def create_default_admin():
         if not db.query(User).filter(User.username == "admin").first():
             hashed = pwd_context.hash(ADMIN_PASSWORD)
             admin_user = User(username="admin", hashed_password=hashed)
+# TEMPORARY — DELETE AFTER LOGIN WORKS
+db.query(User).delete()  # Deletes old admin
+db.commit()
             db.add(admin_user)
             db.commit()
             logger.info("Admin user created with password from ADMIN_PASSWORD")
