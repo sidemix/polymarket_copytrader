@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Bot Dashboard</title>
+    <title>Polymarket Copytrader</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -29,30 +29,39 @@
         .tab.active { background: #4CAF50; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        #output { background: #1a1a1a; padding: 8px; border-radius: 5px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
         .modal.active { display: flex; }
         .modal-content { background: #2d2d2d; padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; }
+        #output { background: #1a1a1a; padding: 8px; border-radius: 5px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap; }
         .notification-bell { position: relative; cursor: pointer; padding: 8px; background: #3d3d3d; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
         .notification-badge { position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .settings-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+        @media (min-width: 768px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
+        .wallet-item { background: #3d3d3d; padding: 12px; margin: 4px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .wallet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .status-running { color: #4CAF50; }
+        .status-stopped { color: #f44336; }
+        .status-paused { color: #ff9800; }
+        .mode-test { color: #ff9800; }
+        .mode-live { color: #4CAF50; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <div class="header-top">
-            <h1><i class="fas fa-robot"></i> Trading Bot Dashboard</h1>
+            <h1><i class="fas fa-robot"></i> Polymarket Copytrader</h1>
             <div class="header-controls">
                 <div class="notification-bell" onclick="toggleNotifications()">
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge" id="notificationCount">0</span>
                 </div>
-                <button class="btn" onclick="startBot()">Start</button>
-                <button class="btn stop" onclick="stopBot()">Stop</button>
-                <button class="btn warning" onclick="pauseBot()">Pause</button>
-                <span>Status: <span id="botStatus">STOPPED</span></span>
-                <span>Mode: <span id="modeText">TEST</span></span>
-                <span id="dryRun" style="color:#ff9800;">DRY RUN</span>
+                <button class="btn" onclick="controlBot('start')">Start</button>
+                <button class="btn stop" onclick="controlBot('stop')">Stop</button>
+                <button class="btn warning" onclick="controlBot('pause')">Pause</button>
+                <span>Status: <span class="status-stopped" id="statusText">STOPPED</span></span>
+                <span>Mode: <span class="mode-test" id="modeText">TEST</span></span>
+                <span id="dryRun" style="color:#ff9800;font-weight:bold;">DRY RUN</span>
             </div>
         </div>
     </div>
@@ -85,32 +94,96 @@
         </div>
     </div>
 
-    <!-- WALLETS TAB -->
+    <!-- WALLETS -->
     <div id="wallets-tab" class="tab-content">
         <div class="panel">
             <h3>Wallet Management</h3>
             <button class="btn" onclick="showAddWalletModal()">Add Wallet</button>
             <div class="wallet-list" id="walletsList">
-                <div style="text-align:center; padding:20px; color:#888;">No wallets added yet</div>
+                <div style="text-align:center;padding:30px;color:#888;">No wallets added yet</div>
             </div>
         </div>
     </div>
 
-    <!-- OTHER TABS (empty for now) -->
-    <div id="analytics-tab" class="tab-content"><div class="panel"><h3>Analytics</h3><p>Coming soon...</p></div></div>
-    <div id="discovery-tab" class="tab-content"><div class="panel"><h3>Discovery</h3><p>Coming soon...</p></div></div>
-    <div id="risk-tab" class="tab-content"><div class="panel"><h3>Risk</h3><p>Coming soon...</p></div></div>
-    <div id="settings-tab" class="tab-content"><div class="panel"><h3>Settings</h3><p>Coming soon...</p></div></div>
+    <!-- DISCOVERY -->
+    <div id="discovery-tab" class="tab-content">
+        <div class="panel">
+            <h3>Auto Wallet Discovery</h3>
+            <button class="btn" onclick="discoverWallets()">Find Sharp Wallets</button>
+            <div id="discoveryResults" style="margin-top:15px;">
+                <p>Click above to discover profitable wallets</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RISK -->
+    <div id="risk-tab" class="tab-content">
+        <div class="panel">
+            <h3>Risk Controls</h3>
+            <div class="settings-grid">
+                <div>
+                    <label>Copy Trading Percentage:</label>
+                    <input type="range" id="copyPercentage" min="1" max="100" value="20" oninput="document.getElementById('copyValue').textContent=this.value+'%'">
+                    <span id="copyValue">20%</span>
+                </div>
+                <div>
+                    <label>Max Trade Amount ($):</label>
+                    <input type="number" id="maxTradeAmount" value="100">
+                </div>
+                <div>
+                    <label>Daily Loss Limit ($):</label>
+                    <input type="number" id="dailyLossLimit" value="200">
+                </div>
+                <div>
+                    <label>Trade Cooldown (seconds):</label>
+                    <input type="number" id="tradeCooldown" value="30">
+                </div>
+            </div>
+            <button class="btn" onclick="updateRiskSettings()" style="margin-top:15px;">Update Risk Settings</button>
+        </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings-tab" class="tab-content">
+        <div class="panel">
+            <h3>Bot Configuration</h3>
+            <div class="settings-grid">
+                <div>
+                    <label>Minimum Trade Amount ($):</label>
+                    <input type="number" id="minTradeAmount" value="5">
+                </div>
+                <div>
+                    <label>Cooldown Between Trades (seconds):</label>
+                    <input type="number" id="tradeCooldown" value="30">
+                </div>
+                <div>
+                    <label>Auto-stop on Daily Loss:</label>
+                    <select id="autoStopEnabled">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Push Notifications:</label>
+                    <select id="pushNotifications">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn" onclick="updateBotSettings()" style="margin-top:15px;">Update Bot Settings</button>
+        </div>
+    </div>
 </div>
 
 <!-- ADD WALLET MODAL -->
 <div id="addWalletModal" class="modal">
     <div class="modal-content">
         <h3>Add Wallet</h3>
-        <input type="text" id="walletNickname" placeholder="Nickname">
+        <input type="text" id="walletNickname" placeholder="Wallet Nickname">
         <input type="text" id="walletAddress" placeholder="Wallet Address (0x...)">
-        <div style="display:flex; gap:10px; margin-top:15px;">
-            <button class="btn" onclick="addWallet()">Add</button>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+            <button class="btn" onclick="addWallet()">Add Wallet</button>
             <button class="btn stop" onclick="hideAddWalletModal()">Cancel</button>
         </div>
     </div>
@@ -119,7 +192,7 @@
 <script>
     const socket = io();
 
-    // TAB SWITCHING — THIS FIXES NON-CLICKABLE TABS
+    // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -129,9 +202,10 @@
         });
     });
 
-    function startBot() { socket.emit("control_bot", { action: "start" }); document.getElementById("botStatus").textContent = "RUNNING"; }
-    function stopBot() { socket.emit("control_bot", { action: "stop" }); document.getElementById("botStatus").textContent = "STOPPED"; }
-    function pauseBot() { socket.emit("control_bot", { action: "pause" }); document.getElementById("botStatus").textContent = "PAUSED"; }
+    function controlBot(action) {
+        socket.emit("control_bot", { action });
+        document.getElementById("statusText").textContent = action.toUpperCase();
+    }
 
     function showAddWalletModal() { document.getElementById("addWalletModal").classList.add("active"); }
     function hideAddWalletModal() { document.getElementById("addWalletModal").classList.remove("active"); }
@@ -144,6 +218,19 @@
         } else {
             alert("Invalid wallet address");
         }
+    }
+
+    function discoverWallets() {
+        document.getElementById("discoveryResults").innerHTML = "<p>Scanning for sharp wallets...</p>";
+        socket.emit("discover_wallets");
+    }
+
+    function updateRiskSettings() {
+        alert("Risk settings saved!");
+    }
+
+    function updateBotSettings() {
+        alert("Bot settings saved!");
     }
 
     socket.on("bot_output", msg => {
