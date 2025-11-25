@@ -12,7 +12,10 @@ from app.config import settings
 from passlib.handlers.argon2 import argon2
 
 app = FastAPI()
+
+# THIS LINE WAS MISSING — ADD IT NOW
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
