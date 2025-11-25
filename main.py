@@ -1,23 +1,19 @@
-# app/main.py — FIXED VERSION
+# app/main.py — FINAL CORRECTED VERSION
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy import inspect, Column, Integer, Boolean
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
-from app.models import User, LeaderWallet, SettingsSingleton
+from app.models import User, LeaderWallet, SettingsSingleton, LeaderTrade  # Import from models
 from app.config import settings
 from passlib.handlers.argon2 import argon2
 from app.background import start_background_tasks
 from app.sockets import websocket_endpoint
 
-class LeaderTrade(Base):
-    __tablename__ = "leader_trades"
-    id = Column(Integer, primary_key=True)
-    # ... your existing columns ...
-    processed = Column(Boolean, default=False, nullable=False)
+# REMOVED: LeaderTrade class definition - it's already in models.py
 
 # 1. CREATE APP FIRST
 app = FastAPI()
