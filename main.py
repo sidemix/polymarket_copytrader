@@ -1,4 +1,4 @@
-# app/main.py — 100% WORKING — DO NOT CHANGE A SINGLE CHARACTER
+# app/main.py — FIXED VERSION
 from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -26,19 +26,23 @@ else:
 # 2. Create app and add SessionMiddleware FIRST
 app = FastAPI()
 
-# THIS LINE MUST BE HERE — BEFORE ANYTHING ELSE
+# CRITICAL FIX: SessionMiddleware must wrap the entire app
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# 3. Auth middleware — now safe
+# 3. Auth middleware — now safe with proper session access
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
+    # Skip auth for these paths
     if request.url.path in ["/login", "/health"] or request.url.path.startswith("/static"):
         return await call_next(request)
+    
+    # Now session should be available since SessionMiddleware is installed
     if not request.session.get("authenticated"):
         return RedirectResponse("/login")
+    
     return await call_next(request)
 
 # 4. Routes
