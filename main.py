@@ -1,4 +1,4 @@
-# app/main.py — SIMPLE & RELIABLE VERSION
+# app/main.py — FIXED CSRF TOKEN VERSION
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -10,6 +10,8 @@ from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SettingsSingleton
 from app.config import settings
 from passlib.handlers.argon2 import argon2
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 
 # 1. Create tables + admin user (safe)
 inspector = inspect(engine)
@@ -30,14 +32,22 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# 3. Simple auth dependency (NO MIDDLEWARE HEADACHES)
+# 3. Add CSRF token function to template context
+def csrf_token():
+    """Dummy CSRF token function for templates"""
+    return ""
+
+# Make CSRF token available to all templates
+templates.env.globals["csrf_token"] = csrf_token
+
+# 4. Simple auth dependency (NO MIDDLEWARE HEADACHES)
 def get_current_user(request: Request):
     """Dependency to check if user is authenticated"""
     if not request.session.get("authenticated"):
         raise HTTPException(status_code=307, headers={"Location": "/login"})
     return True
 
-# 4. Routes
+# 5. Routes
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -55,14 +65,14 @@ async def login(request: Request, db: Session = Depends(get_db)):
 async def dashboard(
     request: Request, 
     db: Session = Depends(get_db),
-    auth: bool = Depends(get_current_user)  # This protects the route
+    auth: bool = Depends(get_current_user)
 ):
     context = {
         "request": request,
         "stats": {"total_trades": 0, "profitable_trades": 0, "total_pnl": 0.0, "win_rate": 0.0},
         "leader_wallets": db.query(LeaderWallet).all(),
         "active_wallets_count": db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count(),
-        "bot_status": "STOPPED",
+        "bot_status": "STOPPED", 
         "trading_mode": "TEST",
         "dry_run": True,
         "risk_level": "Low",
@@ -79,13 +89,3 @@ async def dashboard(
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
-
-# Add more protected routes like this:
-@app.get("/some-protected-route")
-async def protected_route(request: Request, auth: bool = Depends(get_current_user)):
-    return {"message": "This is protected"}
-
-# Public routes don't need the auth dependency
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
