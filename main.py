@@ -1,10 +1,10 @@
-# app/main.py — FINAL ULTIMATE VERSION — FULL DASHBOARD CONTROL
+# app/main.py — FINAL SAFE VERSION (NO DATA LOSS EVER)
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SettingsSingleton
@@ -13,27 +13,36 @@ from passlib.handlers.argon2 import argon2
 from app.background import start_background_tasks
 from app.sockets import websocket_endpoint
 
-# === 1. Initialize Database + Admin User (safe) ===
+print("Starting Polymarket Copytrader...")
+
+# SAFE DATABASE INITIALIZATION
 inspector = inspect(engine)
+
+# 1. Create tables if they don't exist
 if not inspector.has_table("users"):
-    print("First run → creating tables + admin user")
+    print("First run → creating tables + admin")
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
         db.add(User(username="admin", password_hash=argon2.hash("admin123")))
-        db.add(SettingsSingleton(
-            trading_mode="TEST",
-            bot_status="STOPPED",
-            dry_run_enabled=True,
-            portfolio_value=10019.0,
-            available_cash=5920.0,
-            copy_percentage=20.0
-        ))
+        db.add(SettingsSingleton())
         db.commit()
-    print("Admin created → username: admin | password: admin123")
+    print("Admin created → admin / admin123")
 else:
-    print("Database ready")
+    print("Database exists — checking for missing columns...")
 
-# === 2. FastAPI App ===
+    # 2. FIX: Add 'processed' column to leader_trades if missing
+    if inspector.has_table("leader_trades"):
+        columns = [col["name"] for col in inspector.get_columns("leader_trades")]
+        if "processed" not in columns:
+            print("Adding missing 'processed' column to leader_trades...")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE leader_trades ADD COLUMN processed BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+            print("Fixed: leader_trades.processed column added")
+
+print("Bot ready — go to /login")
+
+# APP SETUP
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -44,13 +53,11 @@ app.add_api_websocket_route("/ws", websocket_endpoint)
 async def startup():
     start_background_tasks()
 
-# === 3. Auth Guard ===
 def require_auth(request: Request):
     if not request.session.get("authenticated"):
         raise HTTPException(status_code=307, headers={"Location": "/login"})
     return True
 
-# === 4. Routes ===
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -67,62 +74,17 @@ async def login(request: Request, db: Session = Depends(get_db)):
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_auth)):
     s = db.query(SettingsSingleton).first() or SettingsSingleton()
-    
     context = {
         "request": request,
         "leader_wallets": db.query(LeaderWallet).all(),
         "active_wallets_count": db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count(),
-        "s": s,  # All settings for dashboard
+        "s": s,
         "stats": {"total_trades": 0, "profitable_trades": 0, "total_pnl": 0.0, "win_rate": 0.0},
         "risk_status": "All systems normal",
         "daily_pnl": 0.0,
         "trades_today": 0,
     }
     return templates.TemplateResponse("dashboard.html", context)
-
-# === 5. DASHBOARD CONTROLS ===
-@app.post("/api/wallets/add")
-async def add_wallet(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    address = form.get("address", "").strip().lower()
-    nickname = form.get("nickname", "").strip() or None
-    if not address.startswith("0x") or len(address) != 42:
-        return RedirectResponse("/", status_code=303)
-    if not db.query(LeaderWallet).filter(LeaderWallet.address == address).first():
-        db.add(LeaderWallet(address=address, nickname=nickname, is_active=True))
-        db.commit()
-    return RedirectResponse("/", status_code=303)
-
-@app.post("/api/settings/bot")
-async def update_bot_settings(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    s = db.query(SettingsSingleton).first() or SettingsSingleton()
-    s.trading_mode = form.get("trading_mode", "TEST")
-    s.bot_status = form.get("bot_status", "STOPPED")
-    s.dry_run_enabled = form.get("dry_run_enabled") == "on"
-    db.add(s)
-    db.commit()
-    return RedirectResponse("/", status_code=303)
-
-@app.post("/api/settings/balance")
-async def update_balance(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    s = db.query(SettingsSingleton).first() or SettingsSingleton()
-    s.portfolio_value = float(form.get("portfolio_value", s.portfolio_value or 10019))
-    s.available_cash = float(form.get("available_cash", s.available_cash or 5920))
-    s.risk_tolerance = form.get("risk_tolerance", "medium")
-    db.add(s)
-    db.commit()
-    return RedirectResponse("/", status_code=303)
-
-@app.post("/api/settings/risk")
-async def update_risk(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
-    s = db.query(SettingsSingleton).first() or SettingsSingleton()
-    s.copy_percentage = float(form.get("copy_percentage", s.copy_percentage))
-    db.add(s)
-    db.commit()
-    return RedirectResponse("/", status_code=303)
 
 @app.get("/logout")
 async def logout(request: Request):
