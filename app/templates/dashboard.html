@@ -15,131 +15,42 @@ body {
 .header { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; }
 .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .header-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.panel { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
-.stat { background: #3d3d3d; padding: 12px; border-radius: 8px; text-align: center; }
-.stat-value { font-size: 20px; font-weight: bold; color: #4CAF50; }
+.panel { background: #2d2d2d; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px; }
+.stat { background: #3d3d3d; padding: 15px; border-radius: 8px; text-align: center; }
+.stat-value { font-size: 22px; font-weight: bold; color: #4CAF50; }
 .stat.negative .stat-value { color: #f44336; }
 .btn {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    margin: 3px;
-    font-size: 14px;
+    background: #4CAF50; color: white; border: none; padding: 10px 18px; border-radius: 6px;
+    cursor: pointer; font-size: 14px; transition: 0.2s;
 }
+.btn:hover { background: #45a049; }
 .btn.stop { background: #f44336; }
+.btn.stop:hover { background: #da190b; }
 .btn.warning { background: #ff9800; }
-.btn.small { padding: 4px 8px; font-size: 12px; }
-.btn:disabled { background: #666; cursor: not-allowed; }
-.wallet-list { max-height: 300px; overflow-y: auto; }
+.btn.small { padding: 6px 12px; font-size: 12px; }
 .wallet-item {
-    background: #3d3d3d; padding: 12px; margin: 4px 0;
-    border-radius: 5px; display: flex; justify-content: space-between;
-    align-items: center; flex-wrap: wrap; gap: 8px;
+    background: #3d3d3d; padding: 14px; margin: 6px 0; border-radius: 6px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
 }
-.wallet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.wallet-profit { color: #4CAF50; }
-.wallet-loss { color: #f44336; }
-.wallet-paused { opacity: 0.6; }
-textarea, input, select {
-    width: 100%; padding: 8px; margin: 4px 0; background: #3d3d3d;
-    border: 1px solid #555; color: white; border-radius: 5px; font-size: 14px;
-}
-#output {
-    background: #1a1a1a; padding: 8px; border-radius: 5px;
-    height: 150px; overflow-y: auto; font-family: monospace;
-    font-size: 11px; white-space: pre-wrap;
-}
-.icon { display: inline-block; margin-right: 6px; }
-.settings-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
-.wallet-stats { font-size: 11px; color: #ccc; margin-top: 4px; }
-.tab-container {
-    display: flex; margin-bottom: 15px; background: #2d2d2d;
-    border-radius: 10px; padding: 4px; flex-wrap: wrap;
-}
-.tab {
-    padding: 10px 15px; cursor: pointer; border-radius: 5px;
-    flex: 1; text-align: center; transition: background 0.3s;
-    border: none; background: transparent; color: white; font-size: 13px;
-    min-width: 120px;
-}
-.tab:hover { background: #3d3d3d; }
-.tab.active { background: #4CAF50; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.wallet-address { font-family: monospace; font-size: 10px; color: #888; }
-.wallet-nickname { font-weight: bold; color: #fff; font-size: 14px; }
+.wallet-actions button { margin: 2px; }
 .modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8); z-index: 1000;
-    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center;
 }
 .modal-content {
-    background: #2d2d2d; padding: 20px; border-radius: 10px;
-    width: 100%; max-width: 400px;
+    background: #2d2d2d; padding: 25px; border-radius: 12px; width: 90%; max-width: 420px;
 }
-.notification-bell {
-    position: relative; cursor: pointer;
-    padding: 8px; background: #3d3d3d;
-    border-radius: 50%; width: 40px; height: 40px;
-    display: flex; align-items: center; justify-content: center;
+input, select {
+    width: 100%; padding: 10px; margin: 8px 0; background: #333; border: 1px solid #555;
+    color: white; border-radius: 6px; font-size: 14px;
 }
-.notification-badge {
-    position: absolute; top: -5px; right: -5px;
-    background: #f44336; color: white; border-radius: 50%;
-    width: 20px; height: 20px; font-size: 11px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: bold;
+#output {
+    background: #111; padding: 12px; border-radius: 8px; height: 180px; overflow-y: auto;
+    font-family: monospace; font-size: 11px; white-space: pre-wrap; color: #0f0;
 }
-.notifications-panel {
-    position: absolute; top: 100%; right: 0;
-    background: #2d2d2d; border: 1px solid #444;
-    border-radius: 8px; width: 350px; max-height: 500px;
-    overflow-y: auto; z-index: 1000; display: none;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-.notifications-header {
-    padding: 15px; border-bottom: 1px solid #444;
-    display: flex; justify-content: space-between; align-items: center;
-}
-.notifications-body { max-height: 400px; overflow-y: auto; }
-.notification-item { padding: 12px 15px; border-bottom: 1px solid #444; transition: background 0.2s; }
-.notification-item:hover { background: #3d3d3d; }
-.notification-item:last-child { border-bottom: none; }
-.notification-title { font-weight: bold; margin-bottom: 5px; color: #fff; }
-.notification-message { font-size: 13px; color: #ccc; margin-bottom: 5px; }
-.notification-time { font-size: 11px; color: #888; }
-.notification-actions { margin-top: 8px; display: flex; gap: 10px; }
-.btn-clear {
-    background: transparent; border: 1px solid #666; color: #ccc;
-    padding: 4px 8px; border-radius: 3px; font-size: 11px; cursor: pointer;
-}
-.btn-clear:hover { background: #444; }
-.no-notifications { padding: 20px; text-align: center; color: #888; font-style: italic; }
-@media (min-width: 768px) {
-    body { padding: 20px; }
-    .header { padding: 20px; flex-direction: row; }
-    .header-top { flex-direction: row; }
-    .panel { padding: 20px; }
-    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-    .wallet-item { padding: 15px; flex-wrap: nowrap; }
-    .settings-grid { grid-template-columns: 1fr 1fr; }
-}
-.chart-container { background: #2d2d2d; padding: 15px; border-radius: 10px; margin-bottom: 15px; height: 300px; }
-.charts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
-@media (min-width: 768px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
-.discovery-item {
-    background: #3d3d3d; padding: 12px;
-    margin: 5px 0; border-radius: 5px;
-    display: flex; justify-content: space-between;
-    align-items: center; flex-wrap: wrap; gap: 8px;
-}
-.discovery-stats { font-size: 11px; color: #ccc; }
 .mode-banner {
-    background: #ff9800; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold;
+    background: #ff9800; color: black; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 13px;
 }
 </style>
 {% endblock %}
@@ -148,555 +59,204 @@ textarea, input, select {
 <div class="container">
 <div class="header">
     <div class="header-top">
-        <h1><i class="fas fa-robot fa-icon"></i> Trading Bot Dashboard</h1>
+        <h1>Polymarket Copytrader</h1>
         <div class="header-controls">
             <div class="notification-bell" onclick="toggleNotifications()">
-                <i class="fas fa-bell fa-icon"></i>
+                <i class="fas fa-bell"></i>
                 <span class="notification-badge" id="notificationCount">0</span>
-                <div class="notifications-panel" id="notificationsPanel">
-                    <div class="notifications-header">
-                        <h3><i class="fas fa-bell fa-icon"></i> Notifications</h3>
-                        <div>
-                            <button class="btn-clear" onclick="clearAllNotifications()">Clear All</button>
-                            <button class="btn-clear" onclick="markAllAsRead()">Mark Read</button>
-                        </div>
-                    </div>
-                    <div class="notifications-body" id="notificationsList">
-                        <div class="no-notifications">No notifications</div>
-                    </div>
-                </div>
             </div>
-            <button id="startBtn" class="btn" onclick="controlBot('start')"><i class="fas fa-play"></i> Start</button>
-            <button id="stopBtn" class="btn stop" onclick="controlBot('stop')" {% if bot_status != 'RUNNING' %}disabled{% endif %}><i class="fas fa-stop"></i> Stop</button>
-            <span id="status">Status: {{ bot_status }}</span>
-            <span class="mode-banner">MODE: {{ trading_mode }} {% if dry_run %} [DRY RUN] {% endif %}</span>
+
+            <!-- BOT CONTROL -->
+            <form action="/api/settings/bot" method="POST" style="display:flex; gap:8px; align-items:center;">
+                <select name="bot_status" onchange="this.form.submit()" style="padding:8px;">
+                    <option value="RUNNING" {% if s.bot_status == "RUNNING" %}selected{% endif %}>RUNNING</option>
+                    <option value="STOPPED" {% if s.bot_status == "STOPPED" %}selected{% endif %}>STOPPED</option>
+                </select>
+                <select name="trading_mode" onchange="this.form.submit()" style="padding:8px;">
+                    <option value="TEST" {% if s.trading_mode == "TEST" %}selected{% endif %}>TEST</option>
+                    <option value="LIVE" {% if s.trading_mode == "LIVE" %}selected{% endif %}>LIVE</option>
+                </select>
+                <label style="display:flex; align-items:center; gap:6px; color:#fff;">
+                    <input type="checkbox" name="dry_run_enabled" onchange="this.form.submit()" {% if s.dry_run_enabled %}checked{% endif %}>
+                    DRY RUN
+                </label>
+            </form>
+
+            <span class="mode-banner">
+                MODE: {{ s.trading_mode }} {% if s.dry_run_enabled %}[DRY RUN]{% endif %}
+            </span>
         </div>
     </div>
 </div>
+
 <!-- TABS -->
 <div class="tab-container">
-    <button class="tab active" data-tab="overview"><i class="fas fa-chart-bar fa-icon"></i> Overview</button>
-    <button class="tab" data-tab="analytics"><i class="fas fa-chart-line fa-icon"></i> Analytics</button>
-    <button class="tab" data-tab="wallets"><i class="fas fa-wallet fa-icon"></i> Wallets</button>
-    <button class="tab" data-tab="discovery"><i class="fas fa-search fa-icon"></i> Discovery</button>
-    <button class="tab" data-tab="risk"><i class="fas fa-shield-alt fa-icon"></i> Risk</button>
-    <button class="tab" data-tab="settings"><i class="fas fa-cog fa-icon"></i> Settings</button>
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="wallets">Wallets</button>
+    <button class="tab" data-tab="risk">Risk & Balance</button>
+    <button class="tab" data-tab="settings">Settings</button>
 </div>
-<!-- OVERVIEW TAB -->
+
+<!-- OVERVIEW -->
 <div id="overview-tab" class="tab-content active">
     <div class="panel">
-        <h3><i class="fas fa-chart-bar fa-icon"></i> Performance Stats</h3>
+        <h3>Performance</h3>
         <div class="stats-grid">
-            <div class="stat"><div class="stat-value" id="totalTrades">{{ stats.total_trades or 0 }}</div><div>Total Trades</div></div>
-            <div class="stat"><div class="stat-value" id="profitableTrades">{{ stats.profitable_trades or 0 }}</div><div>Profitable Trades</div></div>
-            <div class="stat {% if stats.total_pnl < 0 %}negative{% endif %}"><div class="stat-value" id="totalProfit">${{ "%.2f"|format(stats.total_pnl or 0) }}</div><div>Total Profit</div></div>
-            <div class="stat"><div class="stat-value" id="winRate">{{ "%.1f"|format((stats.win_rate or 0) * 100) }}%</div><div>Win Rate</div></div>
-            <div class="stat"><div class="stat-value" id="activeWallets">{{ active_wallets_count or 0 }}</div><div>Active Wallets</div></div>
-            <div class="stat"><div class="stat-value" id="riskLevel">{{ risk_level or 'Low' }}</div><div>Risk Level</div></div>
+            <div class="stat"><div class="stat-value">{{ stats.total_trades or 0 }}</div><div>Total Trades</div></div>
+            <div class="stat"><div class="stat-value">${{ "%.2f"|format(stats.total_pnl or 0) }}</div><div>Total P&L</div></div>
+            <div class="stat"><div class="stat-value">{{ active_wallets_count }}</div><div>Active Wallets</div></div>
+            <div class="stat"><div class="stat-value">{{ s.copy_percentage }}%</div><div>Copy %</div></div>
         </div>
     </div>
-    <div class="charts-grid">
-        <div class="panel">
-            <h3><i class="fas fa-trophy fa-icon"></i> Top Performing Wallets</h3>
-            <div class="wallet-list" id="topWallets">
-                {% if top_wallets %}
-                    {% for wallet in top_wallets %}
-                    <div class="wallet-item">
-                        <div>
-                            <div class="wallet-nickname">{{ wallet.nickname or wallet.address[:10] }}...</div>
-                            <div class="wallet-address">{{ wallet.address }}</div>
-                            <div class="wallet-stats">PnL: ${{ "%.2f"|format(wallet.pnl or 0) }} | Win: {{ wallet.win_rate or 0 }}%</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="wallet-item">No top wallets yet.</div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="panel">
-            <h3><i class="fas fa-list fa-icon"></i> Recent Activity</h3>
-            <div id="output">
-                {% if recent_logs %}
-                    {% for log in recent_logs[-50:] %}
-                    {{ log.message }}<br>
-                    {% endfor %}
-                {% else %}
-                Waiting for bot output...
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-<!-- ANALYTICS TAB -->
-<div id="analytics-tab" class="tab-content">
+
     <div class="panel">
-        <h3><i class="fas fa-chart-line fa-icon"></i> Performance Analytics</h3>
-        <div class="charts-grid">
-            <div class="chart-container"><canvas id="profitChart"></canvas></div>
-            <div class="chart-container"><canvas id="tradesChart"></canvas></div>
-        </div>
-        <div class="charts-grid">
-            <div class="chart-container"><canvas id="walletPerformanceChart"></canvas></div>
-            <div class="chart-container"><canvas id="winRateChart"></canvas></div>
-        </div>
+        <h3>Recent Activity</h3>
+        <div id="output">Bot ready. Add a whale wallet to begin.</div>
     </div>
 </div>
+
 <!-- WALLETS TAB -->
 <div id="wallets-tab" class="tab-content">
-    <div class="charts-grid">
-        <div class="panel">
-            <h3><i class="fas fa-wallet fa-icon"></i> Wallet Management</h3>
-            <div style="margin-bottom: 15px;">
-                <button class="btn" onclick="document.getElementById('addWalletModal').style.display='flex'">Add Wallet</button>
-            </div>
-            <div id="walletsList">
-                {% if leader_wallets %}
-                    {% for wallet in leader_wallets %}
-                    <div class="wallet-item {% if not wallet.is_active %}wallet-paused{% endif %}">
-                        <div>
-                            <div class="wallet-nickname">{{ wallet.nickname or wallet.address[:10] }}...</div>
-                            <div class="wallet-address">{{ wallet.address }}</div>
-                            <div class="wallet-stats">Added: {{ wallet.added_at.strftime('%Y-%m-%d') }}</div>
-                        </div>
-                        <div class="wallet-actions">
-                            <button class="btn small" onclick="toggleWallet({{ wallet.id }})">
-                                {% if wallet.is_active %}Pause{% else %}Resume{% endif %}
-                            </button>
-                            <button class="btn small stop" onclick="removeWallet({{ wallet.id }})">Remove</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="wallet-item">No wallets added yet.</div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="panel">
-            <h3><i class="fas fa-chart-line fa-icon"></i> Wallet Performance</h3>
-            <div class="wallet-list" id="walletPerformance">
-                <!-- Dynamic load via JS fetch('/api/wallet/performance') -->
-            </div>
-        </div>
-    </div>
-</div>
-<!-- DISCOVERY TAB -->
-<div id="discovery-tab" class="tab-content">
     <div class="panel">
-        <h3><i class="fas fa-search fa-icon"></i> Auto Wallet Discovery</h3>
-        <div style="margin-bottom: 15px;">
-            <button class="btn" onclick="discoverWallets()"><i class="fas fa-search"></i> Find Profitable Wallets</button>
-            <button class="btn warning" onclick="stopDiscovery()"><i class="fas fa-stop"></i> Stop Discovery</button>
-        </div>
-        <div id="discoveryResults">
-            <div class="discovery-item">Click "Find Profitable Wallets" to discover new trading opportunities</div>
+        <h3>Leader Wallets</h3>
+        <button class="btn" onclick="document.getElementById('addWalletModal').style.display='flex'">Add Wallet</button>
+        <div class="wallet-list">
+            {% for wallet in leader_wallets %}
+            <div class="wallet-item">
+                <div>
+                    <div class="wallet-nickname">{{ wallet.nickname or "Unnamed" }}</div>
+                    <div class="wallet-address">{{ wallet.address }}</div>
+                </div>
+                <div class="wallet-actions">
+                    <form action="/api/wallets/toggle/{{ wallet.id }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn small {{ 'stop' if wallet.is_active else '' }}">
+                            {{ "Pause" if wallet.is_active else "Resume" }}
+                        </button>
+                    </form>
+                    <form action="/api/wallets/remove/{{ wallet.id }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn small stop" onclick="return confirm('Remove wallet?')">Remove</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="wallet-item">No wallets added yet.</div>
+            {% endfor %}
         </div>
     </div>
 </div>
-<!-- RISK TAB -->
+
+<!-- RISK & BALANCE -->
 <div id="risk-tab" class="tab-content">
-    <div class="charts-grid">
-        <div class="panel">
-            <h3><i class="fas fa-shield-alt fa-icon"></i> Risk Controls</h3>
-            <div style="margin-bottom: 15px;">
-                <label><i class="fas fa-percentage fa-icon"></i> Copy Trading Percentage:</label>
-                <input type="range" id="copyPercentage" min="1" max="100" value="{{ risk_settings.copy_percentage or 20 }}">
-                <span id="copyPercentageValue">{{ risk_settings.copy_percentage or 20 }}%</span>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label><i class="fas fa-dollar-sign fa-icon"></i> Max Trade Amount ($):</label>
-                <input type="number" id="maxTradeAmount" value="{{ risk_settings.max_trade_amount or 100 }}">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label><i class="fas fa-exclamation-triangle fa-icon"></i> Daily Loss Limit ($):</label>
-                <input type="number" id="dailyLossLimit" value="{{ risk_settings.daily_loss_limit or 200 }}">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label><i class="fas fa-clock fa-icon"></i> Max Trades Per Hour:</label>
-                <input type="number" id="maxTradesPerHour" value="{{ risk_settings.max_trades_per_hour or 10 }}">
-            </div>
-            <button class="btn" onclick="updateRiskSettings()"><i class="fas fa-save"></i> Update Risk Settings</button>
-        </div>
-        <div class="panel">
-            <h3><i class="fas fa-balance-scale fa-icon"></i> Balance Management</h3>
-            <div style="margin-bottom: 15px;">
-                <label>Available Cash:</label>
-                <input type="number" id="cashInput" value="{{ balances.available_cash or 5920 }}">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label>Portfolio Value:</label>
-                <input type="number" id="portfolioInput" value="{{ balances.portfolio_value or 10019 }}">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label>Risk Tolerance:</label>
-                <select id="riskTolerance">
-                    <option value="low" {% if risk_tolerance == 'low' %}selected{% endif %}>Low (Conservative)</option>
-                    <option value="medium" {% if risk_tolerance == 'medium' %}selected{% endif %}>Medium (Balanced)</option>
-                    <option value="high" {% if risk_tolerance == 'high' %}selected{% endif %}>High (Aggressive)</option>
-                </select>
-            </div>
-            <button class="btn" onclick="updateBalance()"><i class="fas fa-save"></i> Update Balance</button>
-            <div style="margin-top: 20px; padding: 15px; background: #3d3d3d; border-radius: 5px;">
-                <h4><i class="fas fa-info-circle fa-icon"></i> Risk Status</h4>
-                <div id="riskStatus">{{ risk_status or 'All systems normal' }}</div>
-                <div class="wallet-stats" id="riskStats">Daily P&L: ${{ "%.2f"|format(daily_pnl or 0) }} | Trades Today: {{ trades_today or 0 }}</div>
-            </div>
-        </div>
+    <div class="panel">
+        <h3>Balance & Risk</h3>
+        <form action="/api/settings/balance" method="POST">
+            <label>Portfolio Value ($)</label>
+            <input type="number" name="portfolio_value" value="{{ s.portfolio_value }}" step="0.01" required>
+            
+            <label>Available Cash ($)</label>
+            <input type="number" name="available_cash" value="{{ s.available_cash }}" step="0.01" required>
+            
+            <label>Copy % per Trade</label>
+            <input type="range" name="copy_percentage" min="1" max="100" value="{{ s.copy_percentage }}">
+            <span>{{ s.copy_percentage }}%</span>
+            
+            <button type="submit" class="btn" style="margin-top:15px;">Save All Settings</button>
+        </form>
     </div>
 </div>
+
 <!-- SETTINGS TAB -->
 <div id="settings-tab" class="tab-content">
     <div class="panel">
-        <h3><i class="fas fa-cog fa-icon"></i> Bot Configuration</h3>
-        <div class="settings-grid">
-            <div>
-                <label>Minimum Trade Amount ($):</label>
-                <input type="number" id="minTradeAmount" value="{{ bot_settings.min_trade_amount or 5 }}">
-            </div>
-            <div>
-                <label>Cooldown Between Trades (seconds):</label>
-                <input type="number" id="tradeCooldown" value="{{ bot_settings.trade_cooldown or 30 }}">
-            </div>
-            <div>
-                <label>Auto-stop on Daily Loss:</label>
-                <select id="autoStopEnabled">
-                    <option value="true" {% if bot_settings.auto_stop_enabled %}selected{% endif %}>Enabled</option>
-                    <option value="false" {% if not bot_settings.auto_stop_enabled %}selected{% endif %}>Disabled</option>
-                </select>
-            </div>
-            <div>
-                <label>Push Notifications:</label>
-                <select id="pushNotifications">
-                    <option value="true" {% if bot_settings.push_notifications %}selected{% endif %}>Enabled</option>
-                    <option value="false" {% if not bot_settings.push_notifications %}selected{% endif %}>Disabled</option>
-                </select>
-            </div>
-        </div>
-        <button class="btn" onclick="updateBotSettings()" style="margin-top: 15px;">
-            <i class="fas fa-save"></i> Update Bot Settings
-        </button>
+        <h3>Advanced Settings</h3>
+        <p>Coming soon: trade cooldown, daily loss limit, etc.</p>
     </div>
 </div>
-</div> <!-- end container -->
-<!-- ADD WALLET MODAL — WORKING VERSION -->
-<div id="addWalletModal" class="modal" style="display:none;">
+
+<!-- ADD WALLET MODAL -->
+<div id="addWalletModal" class="modal">
     <div class="modal-content">
-        <h3>Add Leader Wallet</h3>
+        <h3>Add Whale Wallet</h3>
         <form action="/api/wallets/add" method="POST">
-            <input type="text" name="nickname" placeholder="Nickname (optional)" style="width:100%; padding:10px; margin:8px 0; background:#333; border:1px solid #555; color:white; border-radius:5px;">
-            <input type="text" name="address" placeholder="Wallet Address (0x...)" required style="width:100%; padding:10px; margin:8px 0; background:#333; border:1px solid #555; color:white; border-radius:5px;">
-            <div style="margin-top:15px; display:flex; gap:10px;">
-                <button type="submit" class="btn">Add Wallet</button>
+            <input type="text" name="nickname" placeholder="Nickname (optional)">
+            <input type="text" name="address" placeholder="0x..." required>
+            <div style="margin-top:15px; text-align:right;">
                 <button type="button" class="btn stop" onclick="document.getElementById('addWalletModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn">Add Wallet</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- NOTIFICATIONS PANEL -->
+<div class="notifications-panel" id="notificationsPanel" style="display:none;">
+    <div class="notifications-header">
+        <h3>Notifications</h3>
+        <button class="btn-clear" onclick="clearAllNotifications()">Clear All</button>
+    </div>
+    <div class="notifications-body" id="notificationsList">
+        <div class="no-notifications">No notifications</div>
+    </div>
+</div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-/* ——— AUTH CHECK ——— */
-let authToken = '{{ request.session.get("csrf_token") }}';
-if (!authToken) { window.location.href = '/login'; }
-const CSRF_TOKEN = authToken;
-const BOT_STATUS = "{{ bot_status }}";
-const DRY_RUN = {{ 'true' if dry_run else 'false' }};
-
-/* ——— NOTIFICATION SYSTEM ——— (Your original code unchanged) */
-let notifications = JSON.parse(localStorage.getItem('botNotifications') || '[]');
-let unreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0');
-function updateNotificationCount() {
-    document.getElementById('notificationCount').textContent = unreadCount;
-    localStorage.setItem('unreadNotificationCount', unreadCount.toString());
-    localStorage.setItem('botNotifications', JSON.stringify(notifications));
-}
-function addNotification(title, message, type='info') {
-    const notification = {
-        id: Date.now(),
-        title,
-        message,
-        type,
-        timestamp: new Date(),
-        read: false
-    };
-    notifications.unshift(notification);
-    unreadCount++;
-    if (notifications.length > 50) notifications = notifications.slice(0, 50);
-    updateNotificationCount();
-    updateNotificationsList();
-}
-function updateNotificationsList() {
-    const list = document.getElementById('notificationsList');
-    if (notifications.length === 0) {
-        list.innerHTML = '<div class="no-notifications">No notifications</div>';
-        return;
-    }
-    list.innerHTML = notifications.map(notif => `
-        <div class="notification-item ${notif.read ? 'read' : ''}">
-            <div class="notification-title">
-                <i class="fas fa-${getNotificationIcon(notif.type)} fa-icon"></i>
-                ${notif.title}
-            </div>
-            <div class="notification-message">${notif.message}</div>
-            <div class="notification-time">${formatTime(notif.timestamp)}</div>
-            <div class="notification-actions">
-                <button class="btn-clear" onclick="markAsRead(${notif.id})">
-                    ${notif.read ? 'Read' : 'Mark Read'}
-                </button>
-                <button class="btn-clear" onclick="deleteNotification(${notif.id})">Delete</button>
-            </div>
-        </div>
-    `).join('');
-}
-function getNotificationIcon(type) {
-    const icons = {
-        info: 'info-circle',
-        success: 'check-circle',
-        warning: 'exclamation-triangle',
-        error: 'exclamation-circle',
-        trade: 'exchange-alt'
-    };
-    return icons[type] || 'bell';
-}
-function formatTime(timestamp) {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString() + ' ' + date.toLocaleDateString();
-}
-function markAsRead(id) {
-    const notif = notifications.find(n => n.id === id);
-    if (notif && !notif.read) {
-        notif.read = true;
-        unreadCount--;
-        updateNotificationCount();
-        updateNotificationsList();
-    }
-}
-function markAllAsRead() {
-    notifications.forEach(n => n.read = true);
-    unreadCount = 0;
-    updateNotificationCount();
-    updateNotificationsList();
-}
-function deleteNotification(id) {
-    const notification = notifications.find(n => n.id === id);
-    if (notification && !notification.read) unreadCount--;
-    notifications = notifications.filter(n => n.id !== id);
-    updateNotificationCount();
-    updateNotificationsList();
-}
-function clearAllNotifications() {
-    if (confirm('Clear all notifications?')) {
-        notifications = [];
-        unreadCount = 0;
-        updateNotificationCount();
-        updateNotificationsList();
-    }
-}
-function toggleNotifications() {
-    const panel = document.getElementById('notificationsPanel');
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    if (panel.style.display === 'block') markAllAsRead();
-}
-document.addEventListener('click', function(event) {
-    const panel = document.getElementById('notificationsPanel');
-    const bell = document.querySelector('.notification-bell');
-    if (panel.style.display === 'block' &&
-        !panel.contains(event.target) &&
-        !bell.contains(event.target)) {
-        panel.style.display = 'none';
-    }
-});
-updateNotificationCount();
-updateNotificationsList();
-
-/* ——— SOCKET.IO EVENTS (Enhanced for backend) ——— */
-const socket = io();
-socket.on('trade_executed', trade => {
-    addNotification('Trade Executed',
-        `${trade.walletNickname || trade.wallet.substring(0, 10)}: ${trade.side} $${trade.amount}`,
-        'trade'
-    );
-    // Refresh stats
-    loadData();
-});
-socket.on('risk_alert', alert => {
-    addNotification('Risk Alert', alert.message, 'warning');
-});
-socket.on('bot_output', output => {
-    const outputDiv = document.getElementById('output');
-    outputDiv.textContent += output + '\n';
-    outputDiv.scrollTop = outputDiv.scrollHeight;
-    if (output.includes('TRADE OPPORTUNITY') || output.includes('DAILY LOSS LIMIT')) {
-        addNotification('Bot Activity', output.trim(), 'info');
-    }
-});
-
-/* ——— BACKEND-WIRED FUNCTIONS ——— */
-async function controlBot(action) {
-    try {
-        const response = await fetch(`/api/bot/${action}`, {
-            method: 'POST',
-            headers: { 'X-CSRF-Token': CSRF_TOKEN },
-        });
-        if (response.ok) {
-            location.reload();  // Refresh status
-        } else {
-            addNotification('Error', 'Failed to control bot', 'error');
-        }
-    } catch (err) {
-        addNotification('Error', err.message, 'error');
-    }
-}
-
-async function addWallet() {
-    const form = document.getElementById('addWalletForm');
-    const formData = new FormData(form);
-    try {
-        const response = await fetch('/api/wallets', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRF-Token': CSRF_TOKEN },
-        });
-        if (response.ok) {
-            hideAddWalletModal();
-            location.reload();
-            addNotification('Success', 'Wallet added', 'success');
-        } else {
-            addNotification('Error', 'Failed to add wallet', 'error');
-        }
-    } catch (err) {
-        addNotification('Error', err.message, 'error');
-    }
-}
-
-async function toggleWallet(walletId) {
-    try {
-        const response = await fetch(`/api/wallets/${walletId}/toggle`, {
-            method: 'POST',
-            headers: { 'X-CSRF-Token': CSRF_TOKEN },
-        });
-        if (response.ok) {
-            location.reload();
-        }
-    } catch (err) {
-        addNotification('Error', err.message, 'error');
-    }
-}
-
-async function removeWallet(walletId) {
-    if (confirm('Remove this wallet?')) {
-        try {
-            const response = await fetch(`/api/wallets/${walletId}`, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-Token': CSRF_TOKEN },
-            });
-            if (response.ok) {
-                location.reload();
-            }
-        } catch (err) {
-            addNotification('Error', err.message, 'error');
-        }
-    }
-}
-
-async function updateRiskSettings() {
-    const data = {
-        copy_percentage: document.getElementById('copyPercentage').value,
-        max_trade_amount: document.getElementById('maxTradeAmount').value,
-        daily_loss_limit: document.getElementById('dailyLossLimit').value,
-        max_trades_per_hour: document.getElementById('maxTradesPerHour').value,
-    };
-    try {
-        const response = await fetch('/api/risk/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
-            body: JSON.stringify(data),
-        });
-        if (response.ok) {
-            addNotification('Success', 'Risk settings updated', 'success');
-        }
-    } catch (err) {
-        addNotification('Error', err.message, 'error');
-    }
-}
-
-async function updateBalance() {
-    const data = {
-        available_cash: document.getElementById('cashInput').value,
-        portfolio_value: document.getElementById('portfolioInput').value,
-        risk_tolerance: document.getElementById('riskTolerance').value,
-    };
-    // Similar fetch to /api/balances
-    // ...
-}
-
-async function updateBotSettings() {
-    const data = {
-        min_trade_amount: document.getElementById('minTradeAmount').value,
-        trade_cooldown: document.getElementById('tradeCooldown').value,
-        auto_stop_enabled: document.getElementById('autoStopEnabled').value === 'true',
-        push_notifications: document.getElementById('pushNotifications').value === 'true',
-    };
-    // Similar fetch to /api/settings
-    // ...
-}
-
-function discoverWallets() {
-    // Fetch to /api/discovery/start
-    addNotification('Discovery', 'Searching for profitable wallets...', 'info');
-}
-
-function stopDiscovery() {
-    // Fetch to /api/discovery/stop
-}
-
-// Modals (unchanged)
-function showAddWalletModal() {
-    document.getElementById('addWalletModal').style.display = 'flex';
-}
-function hideAddWalletModal() {
-    document.getElementById('addWalletModal').style.display = 'none';
-}
-
-/* ——— TABS & CHARTS (Your original + dynamic load) ——— */
-function setupTabs() {
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
-        });
-    });
-}
-
-function initializeCharts() {
-    // Placeholder charts - fetch data via /api/analytics
-    new Chart(document.getElementById('profitChart'), { type: 'line', data: { /* dynamic */ } });
-    // Similar for others
-}
-
-async function loadData() {
-    // Fetch /api/stats, /api/wallets/performance, etc., and update DOM
-    // e.g., fetch('/api/stats').then(res => res.json()).then(data => { document.getElementById('totalTrades').textContent = data.total_trades; });
-}
-
-/* ——— INITIALIZATION ——— */
-document.addEventListener('DOMContentLoaded', function() {
-    setupTabs();
-    initializeCharts();
-    loadData();  // Initial load
-    // requestNotificationPermission();  // If using push
-    updateNotificationCount();
-});
-</script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-  const socket = io();
-  socket.on("new_trade", (data) => {
-    addNotification("New Trade", `${data.wallet}: ${data.outcome} $${data.amount}`, "trade");
-    document.getElementById("output").textContent += `\n[${new Date().toLocaleTimeString()}] ${data.wallet} → ${data.outcome} $${data.amount}`;
-  });
+const socket = io();
+
+// Real-time trade alerts
+socket.on("new_trade", (data) => {
+    const time = new Date().toLocaleTimeString();
+    document.getElementById("output").textContent += `\n[${time}] ${data.wallet}: ${data.outcome} $${data.amount.toFixed(2)}`;
+    document.getElementById("output").scrollTop = document.getElementById("output").scrollHeight;
+    addNotification("Trade Copied", `${data.wallet} → ${data.outcome} $${data.amount.toFixed(2)}`, "success");
+});
+
+// Notification system
+let notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+function addNotification(title, msg, type = "info") {
+    notifications.unshift({title, msg, type, time: new Date()});
+    if (notifications.length > 50) notifications.pop();
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+    renderNotifications();
+}
+function renderNotifications() {
+    const list = document.getElementById("notificationsList");
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="no-notifications">No notifications</div>';
+        document.getElementById("notificationCount").textContent = "0";
+        return;
+    }
+    document.getElementById("notificationCount").textContent = notifications.length;
+    list.innerHTML = notifications.map(n => `
+        <div class="notification-item">
+            <div class="notification-title">${n.title}</div>
+            <div class="notification-message">${n.msg}</div>
+            <div class="notification-time">${n.time.toLocaleTimeString()}</div>
+        </div>
+    `).join("");
+}
+function clearAllNotifications() {
+    notifications = [];
+    localStorage.setItem("notifications", "[]");
+    renderNotifications();
+}
+function toggleNotifications() {
+    const panel = document.getElementById("notificationsPanel");
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+renderNotifications();
+
+// Tab system
+document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.tab + "-tab").classList.add("active");
+    });
+});
 </script>
 {% endblock %}
