@@ -696,4 +696,12 @@ document.addEventListener('DOMContentLoaded', function() {
     updateNotificationCount();
 });
 </script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  socket.on("new_trade", (data) => {
+    addNotification("New Trade", `${data.wallet}: ${data.outcome} $${data.amount}`, "trade");
+    document.getElementById("output").textContent += `\n[${new Date().toLocaleTimeString()}] ${data.wallet} → ${data.outcome} $${data.amount}`;
+  });
+</script>
 {% endblock %}

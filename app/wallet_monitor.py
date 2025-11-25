@@ -1,51 +1,37 @@
+# app/wallet_monitor.py
 import asyncio
-import logging
 from datetime import datetime, timedelta
+from app.polymarket_client import PolymarketClient
+from app.db import get_db
+from app.models import LeaderWallet, LeaderTrade
 from sqlalchemy.orm import Session
-from .db import get_db
-from .models import LeaderWallet, LeaderTrade, SystemEvent
-from .polymarket_client import client
 
-logger = logging.getLogger("copytrader")
+client = PolymarketClient()
 
 async def monitor_wallets():
     while True:
-        if settings.BOT_STATUS != "RUNNING":
-            await asyncio.sleep(5)
-            continue
-
         db: Session = next(get_db())
-        try:
-            active_wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active).all()
-            for wallet in active_wallets:
-                last_trade = db.query(LeaderTrade).filter(
-                    LeaderTrade.leader_wallet_id == wallet.id
-                ).order_by(LeaderTrade.executed_at.desc()).first()
-
-                since = int((last_trade.executed_at.timestamp() if last_trade else 0) * 1000)
-                new_trades = await client.get_trades_for_wallet(wallet.address, since)
-
-                for t in new_trades:
-                    # Idempotency
-                    exists = db.query(LeaderTrade).filter(LeaderTrade.external_trade_id == t.trade_id).first()
-                    if not exists:
-                        db_trade = LeaderTrade(
-                            leader_wallet_id=wallet.id,
-                            external_trade_id=t.trade_id,
-                            market_id=t.market_id,
-                            outcome_id=t.outcome_id,
-                            side=t.side,
-                            size=t.size,
-                            price=t.price,
-                            executed_at=datetime.fromtimestamp(t.timestamp / 1000),
-                            raw_data=t.__dict__
+        wallets = db.query(LeaderWallet).filter(LeaderWallet.is_active == True).all()
+        
+        for wallet in wallets:
+            try:
+                trades = await client.get_recent_trades(wallet.address)
+                for trade in trades:
+                    if not db.query(LeaderTrade).filter(LeaderTrade.external_id == trade["id"]).first():
+                        new_trade = LeaderTrade(
+                            wallet_id=wallet.id,
+                            external_id=trade["id"],
+                            market_id=trade["market"]["id"],
+                            outcome=trade["outcome"],
+                            amount=float(trade["amount"]),
+                            price=float(trade["price"]),
+                            timestamp=datetime.fromtimestamp(int(trade["timestamp"])/1000)
                         )
-                        db.add(db_trade)
-                        db.commit()
-                        # Emit to executor
-                        asyncio.create_task(process_new_leader_trade(db_trade.id))
-
-            db.close()
-        except Exception as e:
-            logger.error(f"Monitor error: {e}")
-        await asyncio.sleep(settings.WALLET_POLL_INTERVAL)
+                        db.add(new_trade)
+                        from app.events import emit_trade
+                        await emit_trade(new_trade, wallet)
+                db.commit()
+            except Exception as e:
+                print(f"Error monitoring {wallet.address}: {e}")
+        
+        await asyncio.sleep(15)  # Check every 15 seconds

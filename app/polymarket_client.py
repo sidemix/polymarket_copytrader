@@ -1,32 +1,28 @@
-from typing import List, Dict
-from dataclasses import dataclass
+# app/polymarket_client.py
 import httpx
-from .config import settings
-
-@dataclass
-class LeaderTradeDTO:
-    trade_id: str
-    wallet: str
-    market_id: str
-    outcome_id: int
-    side: str
-    size: float
-    price: float
-    timestamp: int
+from typing import List, Dict, Optional
+from datetime import datetime
 
 class PolymarketClient:
     def __init__(self):
-        self.api_key = settings.POLYMARKET_API_KEY
-        self.base_url = "https://api.polymarket.com/v1"  # placeholder
+        self.base_url = "https://clob.polymarket.com"
+        self.graphql_url = "https://gamma-api.polymarket.com/query"
+        self.client = httpx.AsyncClient(timeout=20.0)
 
-    async def get_trades_for_wallet(self, wallet: str, since: int) -> List[LeaderTradeDTO]:
-        # Placeholder — implement with real Polymarket API
-        return []
-
-    async def place_order(self, market_id: str, outcome_id: int, side: str, size_usd: float, max_price: float = None):
-        if settings.DRY_RUN:
-            return {"success": True, "dry_run": True, "order_id": "dry_" + str(hash(str(locals())))}
-        # Real implementation
-        raise NotImplementedError("Live trading not implemented yet")
-
-client = PolymarketClient()
+    async def get_recent_trades(self, wallet: str, limit: int = 50) -> List[Dict]:
+        query = """
+        query GetTrades($wallet: String!) {
+          trades(where: {user: $wallet}, orderBy: timestamp, orderDirection: desc, first: $limit) {
+            id
+            market { id title }
+            outcome
+            amount
+            price
+            timestamp
+          }
+        }
+        """
+        variables = {"wallet": wallet.lower(), "limit": limit}
+        resp = await self.client.post(self.graphql_url, json={"query": query, "variables": variables})
+        resp.raise_for_status()
+        return resp.json()["data"]["trades"]

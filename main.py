@@ -12,6 +12,16 @@ from app.config import settings
 from passlib.handlers.argon2 import argon2
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+from app.sockets import router as socket_router
+from app.background import start_background_tasks
+
+# Add WebSocket route
+app.include_router(socket_router)
+
+# Start background tasks on startup
+@app.on_event("startup")
+async def startup_event():
+    start_background_tasks()
 
 # 1. Create tables + admin user (safe)
 inspector = inspect(engine)
@@ -84,6 +94,8 @@ async def dashboard(
         "bot_settings": {"min_trade_amount": 5}
     }
     return templates.TemplateResponse("dashboard.html", context)
+
+
 
 @app.get("/logout")
 async def logout(request: Request):
