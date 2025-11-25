@@ -23,29 +23,42 @@ if not inspector.has_table("users"):
 else:
     print("Database ready")
 
-# 2. Create app and add SessionMiddleware FIRST
+# 2. Create app
 app = FastAPI()
-
-# CRITICAL FIX: SessionMiddleware must wrap the entire app
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# 3. Auth middleware — now safe with proper session access
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    # Skip auth for these paths
-    if request.url.path in ["/login", "/health"] or request.url.path.startswith("/static"):
-        return await call_next(request)
-    
-    # Now session should be available since SessionMiddleware is installed
-    if not request.session.get("authenticated"):
-        return RedirectResponse("/login")
-    
-    return await call_next(request)
+# 3. Custom auth middleware class that runs AFTER SessionMiddleware
+class AuthMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-# 4. Routes
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
+        
+        # Skip auth for these paths
+        if request.url.path in ["/login", "/health"] or request.url.path.startswith("/static"):
+            await self.app(scope, receive, send)
+            return
+        
+        # Now session should be available since we'll wrap this with SessionMiddleware
+        if not request.session.get("authenticated"):
+            response = RedirectResponse("/login")
+            await response(scope, receive, send)
+            return
+        
+        await self.app(scope, receive, send)
+
+# 4. Apply middleware in correct order: SessionMiddleware wraps AuthMiddleware
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+app.add_middleware(AuthMiddleware)
+
+# 5. Routes
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
