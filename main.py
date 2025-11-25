@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware   # ← HERE
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
@@ -11,29 +11,28 @@ from app.models import User, LeaderWallet, SettingsSingleton
 from app.config import settings
 from passlib.handlers.argon2 import argon2
 
-# === 1. CREATE TABLES + ADMIN USER (SAFE) ===
+# === CREATE TABLES + ADMIN USER ===
 inspector = inspect(engine)
 if not inspector.has_table("users"):
-    print("Database empty → creating tables...")
+    print("Creating tables + admin user...")
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
         db.add(User(username="admin", password_hash=argon2.hash("admin123")))
         db.add(SettingsSingleton())
         db.commit()
-    print("Admin created → admin / admin123")
 else:
     print("Database already initialized")
 
-# === 2. CREATE APP AND ADD SESSION MIDDLEWARE FIRST ===
+# === APP + SESSION MIDDLEWARE FIRST ===
 app = FastAPI()
 
-# THIS LINE MUST BE HERE — BEFORE ANYTHING THAT USES request.session
+# THIS LINE MUST BE HERE — BEFORE ANY ROUTE OR MIDDLEWARE THAT USES request.session
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# === 3. AUTH MIDDLEWARE (now safe to use request.session) ===
+# === AUTH MIDDLEWARE (NOW SAFE) ===
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if str(request.url.path) in ["/login", "/health"] or str(request.url.path).startswith("/static"):
@@ -42,7 +41,7 @@ async def auth_middleware(request: Request, call_next):
         return RedirectResponse("/login")
     return await call_next(request)
 
-# === 4. ROUTES ===
+# === ROUTES ===
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
