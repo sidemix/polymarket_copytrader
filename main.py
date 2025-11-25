@@ -1,10 +1,10 @@
-# app/main.py — FINAL 100% WORKING — NO MORE ERRORS EVER
-from fastapi import FastAPI, Request, Depends, Form
+# app/main.py — FIXED VERSION
+from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy import inspect
+from sqlalchemy import inspect, Column, Integer, Boolean
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SettingsSingleton
@@ -18,44 +18,51 @@ class LeaderTrade(Base):
     id = Column(Integer, primary_key=True)
     # ... your existing columns ...
     processed = Column(Boolean, default=False, nullable=False)
-    
 
+# 1. CREATE APP FIRST
+app = FastAPI()
+
+# 2. ADD MIDDLEWARE
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
+
+# 3. MOUNT STATIC + TEMPLATES
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
 
 def get_csrf_token():
     return "dummy"
 
-# Make it available in templates
+# Make it available in templates (AFTER templates is defined)
 templates.env.globals["csrf_token"] = get_csrf_token
 
-# 1. Create tables + admin user
+# 4. WEBSOCKET
+app.add_api_websocket_route("/ws", websocket_endpoint)
+
+# 5. BACKGROUND TASKS
+@app.on_event("startup")
+async def startup():
+    start_background_tasks()
+
+# 6. CREATE TABLES + ADMIN USER (AFTER app is created)
 inspector = inspect(engine)
 if not inspector.has_table("users"):
     print("Creating tables + admin")
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
-        db.add(User(username="admin", password_hash=argon2.hash("admin123")))
-        db.add(SettingsSingleton())
+        # Check if admin already exists
+        existing_admin = db.query(User).filter(User.username == "admin").first()
+        if not existing_admin:
+            db.add(User(username="admin", password_hash=argon2.hash("admin123")))
+        
+        # Check if settings already exist
+        existing_settings = db.query(SettingsSingleton).first()
+        if not existing_settings:
+            db.add(SettingsSingleton())
+        
         db.commit()
+    print("Database initialized")
 else:
     print("Database ready")
-
-# 2. CREATE APP FIRST
-app = FastAPI()
-
-# 3. ADD MIDDLEWARE
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
-
-# 4. MOUNT STATIC + TEMPLATES
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
-
-# 5. WEBSOCKET
-app.add_api_websocket_route("/ws", websocket_endpoint)
-
-# 6. BACKGROUND TASKS
-@app.on_event("startup")
-async def startup():
-    start_background_tasks()
 
 # 7. AUTH
 def get_current_user(request: Request):
@@ -71,11 +78,14 @@ async def login_page(request: Request):
 @app.post("/login")
 async def login(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-    user = db.query(User).filter(User.username == form.get("username")).first()
-    if user and argon2.verify(form.get("password", ""), user.password_hash):
+    username = form.get("username")
+    password = form.get("password", "")
+    
+    user = db.query(User).filter(User.username == username).first()
+    if user and argon2.verify(password, user.password_hash):
         request.session["authenticated"] = True
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid"})
+    return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db), auth: bool = Depends(get_current_user)):
