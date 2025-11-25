@@ -32,7 +32,7 @@ class LeaderTrade(Base):
     price = Column(Float)
     executed_at = Column(DateTime(timezone=True))
     raw_data = Column(JSON)
-    processed = Column(Boolean, default=False, nullable=False)  # Add this line if needed
+    processed = Column(Boolean, default=False, nullable=False)
 
     wallet = relationship("LeaderWallet")
 

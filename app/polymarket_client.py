@@ -1,18 +1,21 @@
-# app/polymarket_client.py
+# app/polymarket_client.py — WORKING VERSION
 import httpx
-from typing import List, Dict, Optional
-from datetime import datetime
 
 class PolymarketClient:
     def __init__(self):
-        self.base_url = "https://clob.polymarket.com"
-        self.graphql_url = "https://gamma-api.polymarket.com/query"
-        self.client = httpx.AsyncClient(timeout=20.0)
+        self.client = httpx.AsyncClient(
+            timeout=20.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Origin": "https://polymarket.com",
+                "Referer": "https://polymarket.com/"
+            }
+        )
 
-    async def get_recent_trades(self, wallet: str, limit: int = 50) -> List[Dict]:
+    async def get_recent_trades(self, wallet: str, limit: int = 50):
         query = """
-        query GetTrades($wallet: String!) {
-          trades(where: {user: $wallet}, orderBy: timestamp, orderDirection: desc, first: $limit) {
+        query GetUserTrades($user: String!, $first: Int!) {
+          trades(where: {user: $user}, orderBy: timestamp, orderDirection: desc, first: $first) {
             id
             market { id title }
             outcome
@@ -22,7 +25,10 @@ class PolymarketClient:
           }
         }
         """
-        variables = {"wallet": wallet.lower(), "limit": limit}
-        resp = await self.client.post(self.graphql_url, json={"query": query, "variables": variables})
+        variables = {"user": wallet.lower(), "first": limit}
+        resp = await self.client.post(
+            "https://gamma-api.polymarket.com/query",
+            json={"query": query, "variables": variables}
+        )
         resp.raise_for_status()
-        return resp.json()["data"]["trades"]
+        return resp.json().get("data", {}).get("trades", [])
