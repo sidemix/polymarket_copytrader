@@ -74,12 +74,19 @@ async def login(request: Request, db: Session = Depends(get_db)):
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db), _: bool = Depends(require_auth)):
     s = db.query(SettingsSingleton).first() or SettingsSingleton()
+    
     context = {
         "request": request,
-        "leader_wallets": db.query(LeaderWallet).all(),
+        "leader-offset": db.query(LeaderWallet).all(),
         "active_wallets_count": db.query(LeaderWallet).filter(LeaderWallet.is_active == True).count(),
-        "s": s,
+        "s": s,  # This gives you all settings in template
         "stats": {"total_trades": 0, "profitable_trades": 0, "total_pnl": 0.0, "win_rate": 0.0},
+        "risk_settings": {"copy_percentage": getattr(s, "copy_percentage", 20)},
+        "balances": {
+            "available_cash": getattr(s, "available_cash", 5920),
+            "portfolio_value": getattr(s, "portfolio_value", 10019)
+        },
+        "risk_level": "Low",
         "risk_status": "All systems normal",
         "daily_pnl": 0.0,
         "trades_today": 0,
