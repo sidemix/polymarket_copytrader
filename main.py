@@ -4,27 +4,29 @@ from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware   # ← HERE
+from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import inspect   # ← ADD THIS LINE
 from sqlalchemy.orm import Session
 from app.db import get_db, Base, engine
 from app.models import User, LeaderWallet, SettingsSingleton
 from app.config import settings
 from passlib.handlers.argon2 import argon2
 
-# Create tables + admin (already working)
-Base.metadata.create_all(bind=engine)
-with Session(engine) as db:
-    if not db.query(User).filter(User.username == "admin").first():
+# Create tables + admin user safely
+inspector = inspect(engine)
+if not inspector.has_table("users"):
+    print("Database empty → creating tables...")
+    Base.metadata.create_all(bind=engine)
+    with Session(engine) as db:
         db.add(User(username="admin", password_hash=argon2.hash("admin123")))
         db.add(SettingsSingleton())
         db.commit()
+    print("Admin created → username: admin | password: admin123")
+else:
+    print("Database already initialized")
 
-# FASTAPI APP
 app = FastAPI()
-
-# THIS LINE MUST BE HERE — RIGHT AFTER app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
-
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
