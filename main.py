@@ -71,6 +71,22 @@ def get_current_user(request: Request):
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
+@app.post("/api/wallets/add")
+async def add_wallet(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    address = form.get("address")
+    nickname = form.get("nickname", "").strip()
+    
+    if not address or not address.startswith("0x") or len(address) != 42:
+        return templates.TemplateResponse("dashboard.html", {"request": request, "error": "Invalid wallet address"})
+    
+    # Save to DB
+    wallet = LeaderWallet(address=address.lower(), nickname=nickname or None, is_active=True)
+    db.add(wallet)
+    db.commit()
+    
+    return RedirectResponse("/", status_code=303)
+
 @app.post("/login")
 async def login(request: Request, db: Session = Depends(get_db)):
     form = await request.form()

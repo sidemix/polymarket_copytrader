@@ -248,7 +248,7 @@ textarea, input, select {
         <div class="panel">
             <h3><i class="fas fa-wallet fa-icon"></i> Wallet Management</h3>
             <div style="margin-bottom: 15px;">
-                <button class="btn" onclick="showAddWalletModal()"><i class="fas fa-plus"></i> Add Wallet</button>
+                <button class="btn" onclick="document.getElementById('addWalletModal').style.display='flex'">Add Wallet</button>
             </div>
             <div id="walletsList">
                 {% if leader_wallets %}
@@ -378,21 +378,16 @@ textarea, input, select {
     </div>
 </div>
 </div> <!-- end container -->
-<!-- ADD WALLET MODAL -->
-<div id="addWalletModal" class="modal">
+<!-- ADD WALLET MODAL — WORKING VERSION -->
+<div id="addWalletModal" class="modal" style="display:none;">
     <div class="modal-content">
-        <h3><i class="fas fa-plus fa-icon"></i> Add Wallet</h3>
-        <form id="addWalletForm" method="POST" action="/api/wallets" onsubmit="event.preventDefault(); addWallet();">
-            <!-- {{ csrf_token() | safe }} --> <!-- Hidden CSRF input -->
-            <div class="wallet-input-row">
-                <input type="text" id="walletNickname" name="nickname" placeholder="Nickname">
-            </div>
-            <div class="wallet-input-row">
-                <input type="text" id="walletAddress" name="address" placeholder="Wallet Address" required>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button type="submit" class="btn"><i class="fas fa-save"></i> Add Wallet</button>
-                <button type="button" class="btn stop" onclick="hideAddWalletModal()">Cancel</button>
+        <h3>Add Leader Wallet</h3>
+        <form action="/api/wallets/add" method="POST">
+            <input type="text" name="nickname" placeholder="Nickname (optional)" style="width:100%; padding:10px; margin:8px 0; background:#333; border:1px solid #555; color:white; border-radius:5px;">
+            <input type="text" name="address" placeholder="Wallet Address (0x...)" required style="width:100%; padding:10px; margin:8px 0; background:#333; border:1px solid #555; color:white; border-radius:5px;">
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button type="submit" class="btn">Add Wallet</button>
+                <button type="button" class="btn stop" onclick="document.getElementById('addWalletModal').style.display='none'">Cancel</button>
             </div>
         </form>
     </div>
