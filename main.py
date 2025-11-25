@@ -1,5 +1,5 @@
-# app/main.py — FIXED VERSION
-from fastapi import FastAPI, Request, Depends, Form
+# app/main.py — SIMPLE & RELIABLE VERSION
+from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -23,42 +23,21 @@ if not inspector.has_table("users"):
 else:
     print("Database ready")
 
-# 2. Create app
+# 2. Create app with SessionMiddleware
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# 3. Custom auth middleware class that runs AFTER SessionMiddleware
-class AuthMiddleware:
-    def __init__(self, app):
-        self.app = app
+# 3. Simple auth dependency (NO MIDDLEWARE HEADACHES)
+def get_current_user(request: Request):
+    """Dependency to check if user is authenticated"""
+    if not request.session.get("authenticated"):
+        raise HTTPException(status_code=307, headers={"Location": "/login"})
+    return True
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope, receive)
-        
-        # Skip auth for these paths
-        if request.url.path in ["/login", "/health"] or request.url.path.startswith("/static"):
-            await self.app(scope, receive, send)
-            return
-        
-        # Now session should be available since we'll wrap this with SessionMiddleware
-        if not request.session.get("authenticated"):
-            response = RedirectResponse("/login")
-            await response(scope, receive, send)
-            return
-        
-        await self.app(scope, receive, send)
-
-# 4. Apply middleware in correct order: SessionMiddleware wraps AuthMiddleware
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
-app.add_middleware(AuthMiddleware)
-
-# 5. Routes
+# 4. Routes
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -73,7 +52,11 @@ async def login(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("login.html", {"request": request, "error": "Wrong username or password"})
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, db: Session = Depends(get_db)):
+async def dashboard(
+    request: Request, 
+    db: Session = Depends(get_db),
+    auth: bool = Depends(get_current_user)  # This protects the route
+):
     context = {
         "request": request,
         "stats": {"total_trades": 0, "profitable_trades": 0, "total_pnl": 0.0, "win_rate": 0.0},
@@ -96,3 +79,13 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login")
+
+# Add more protected routes like this:
+@app.get("/some-protected-route")
+async def protected_route(request: Request, auth: bool = Depends(get_current_user)):
+    return {"message": "This is protected"}
+
+# Public routes don't need the auth dependency
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
