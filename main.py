@@ -13,6 +13,20 @@ from passlib.handlers.argon2 import argon2
 from app.background import start_background_tasks
 from app.sockets import websocket_endpoint
 
+class LeaderTrade(Base):
+    __tablename__ = "leader_trades"
+    id = Column(Integer, primary_key=True)
+    # ... your existing columns ...
+    processed = Column(Boolean, default=False, nullable=False)
+    
+
+
+def get_csrf_token():
+    return "dummy"
+
+# Make it available in templates
+templates.env.globals["csrf_token"] = get_csrf_token
+
 # 1. Create tables + admin user
 inspector = inspect(engine)
 if not inspector.has_table("users"):
