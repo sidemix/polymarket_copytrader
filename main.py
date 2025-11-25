@@ -108,8 +108,9 @@ async def update_bot_settings(request: Request, db: Session = Depends(get_db)):
 async def update_balance(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     s = db.query(SettingsSingleton).first() or SettingsSingleton()
-    s.portfolio_value = float(form.get("portfolio_value", s.portfolio_value))
-    s.available_cash = float(form.get("available_cash", s.available_cash))
+    s.portfolio_value = float(form.get("portfolio_value", s.portfolio_value or 10019))
+    s.available_cash = float(form.get("available_cash", s.available_cash or 5920))
+    s.risk_tolerance = form.get("risk_tolerance", "medium")
     db.add(s)
     db.commit()
     return RedirectResponse("/", status_code=303)
