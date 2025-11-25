@@ -12,7 +12,7 @@ from app.config import settings
 from passlib.handlers.argon2 import argon2
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
-from app.sockets import router as socket_router
+from app.sockets import manager
 from app.background import start_background_tasks
 
 # Add WebSocket route
