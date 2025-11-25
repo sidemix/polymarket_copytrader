@@ -1,27 +1,33 @@
-# app/sockets.py
-from fastapi import APIRouter
-from app.events import manager
-
 # app/sockets.py — FINAL WORKING VERSION
-from fastapi import WebSocket   # ← THIS WAS MISSING
-from app.events import manager
+from fastapi import WebSocket
+from typing import List
 
-@manager.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except:
-        manager.disconnect(websocket)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
 
-router = APIRouter()
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
 
-@router.websocket("/ws")
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_json(message)
+            except:
+                self.disconnect(connection)
+
+manager = ConnectionManager()
+
+# This is the actual endpoint — NOT a decorator
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-    except:
+    except Exception:
         manager.disconnect(websocket)

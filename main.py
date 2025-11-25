@@ -14,9 +14,13 @@ from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from app.sockets import manager
 from app.background import start_background_tasks
+from app.sockets import websocket_endpoint
 
 # Add WebSocket route
 app.include_router(socket_router)
+# Add this line with your other routes
+app.websocket("/ws")(websocket_endpoint)   
+
 
 # Start background tasks on startup
 @app.on_event("startup")
